@@ -1,0 +1,15 @@
+:root {
+    /* 1. ブランドカラー */
+    --color-primary: #667eea;
+    --color-secondary: #764ba2;
+
+    /* 2. テキストの色 */
+    --color-text-main: #1a1a1a;
+    --color-text-sub: #4a4a4a;
+    --color-text-light: rgba(255, 255, 255, 0.9);
+
+    /* 3. ガラスデザイン用の色（RGBA） */
+    --color-glass-bg: rgba(255, 255, 255, 0.2);
+    --color-glass-border: rgba(255, 255, 255, 0.3);
+    --color-glass-shadow: rgba(0, 0, 0, 0.15);
+}

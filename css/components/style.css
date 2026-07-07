@@ -1,0 +1,49 @@
+/* Layout ---------------------------------------- */
+
+.list,
+.list-h {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.list-v {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+}
+
+/* Frame ----------------------------------------- */
+
+.glass {
+    background-color: rgba(255, 255, 255, 0.2);
+    
+    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(12px);
+    
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 20px;
+    
+    padding: 24px 32px;
+    
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.15);
+}
+
+/* Text ------------------------------------------ */
+
+.text-main {
+    font-size: 2.25rem;
+    font-weight: 800;
+    line-height: 1.2; 
+    letter-spacing: -0.02em;
+    color: var(--color-text-main);
+}
+
+.text-sub {
+    font-size: 1.1rem;
+    font-weight: 500;
+    line-height: 1.4;
+    letter-spacing: 0.04em;
+    color: var(--color-subtitle);
+}
