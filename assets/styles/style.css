@@ -96,6 +96,5 @@ body {
     -webkit-backdrop-filter: blur(10px);
     border: 1px solid var(--card-border);
     opacity: 1;
-    transform: scale(1.1);
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
 }

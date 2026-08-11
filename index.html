@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="ja">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,10 +8,11 @@
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
     <!-- Font Awesome -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="stylesheet" href="assets/styles/style.css">
     <link rel="stylesheet" href="assets/styles/index.css">
 </head>
+
 <body>
     <!-- Theme Toggle Button -->
     <button id="theme-toggle" class="theme-toggle-btn" aria-label="Toggle Theme">
@@ -27,7 +29,8 @@
     <!-- Profile Card -->
     <main class="profile-card">
         <div class="avatar-container">
-            <img id="profile-image" class="avatar skeleton" src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=" alt="Profile Image">
+            <img id="profile-image" class="avatar skeleton"
+                src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=" alt="Profile Image">
             <div class="status-badge" style="display: none;" id="status-badge"></div>
         </div>
 
@@ -42,24 +45,44 @@
                 </button>
             </div>
         </div>
-        <p id="profile-bio" class="bio skeleton" style="min-height: 60px; border-radius: 8px; margin-bottom: 2.5rem; width: 90%; margin-left: auto; margin-right: auto;"></p>
+        <p id="profile-bio" class="bio skeleton"
+            style="min-height: 60px; border-radius: 8px; margin-bottom: 2.5rem; width: 90%; margin-left: auto; margin-right: auto;">
+        </p>
 
         <div class="social-links">
             <!-- GitHub Link (Dynamic) -->
-            <a id="github-link" href="https://github.com/inamium1730" target="_blank" rel="noopener noreferrer" class="social-link" title="GitHub">
+            <a id="github-link" href="https://github.com/inamium1730" target="_blank" rel="noopener noreferrer"
+                class="social-link" aria-label="GitHub">
                 <i class="fab fa-github"></i>
+                <span class="social-tooltip">GitHub</span>
             </a>
             <!-- X (Twitter) Link -->
-            <a href="https://x.com/" target="_blank" rel="noopener noreferrer" class="social-link" title="X (Twitter)">
+            <a href="https://x.com/" target="_blank" rel="noopener noreferrer" class="social-link" aria-label="X (Twitter)">
                 <i class="fa-brands fa-x-twitter"></i>
+                <span class="social-tooltip">X (Twitter)</span>
             </a>
-            <!-- Other SNS / Links -->
-            <a href="#" target="_blank" rel="noopener noreferrer" class="social-link" title="Website / Portfolio">
-                <i class="fas fa-link"></i>
+            <!-- Discord Link -->
+            <a href="https://discord.com/users/853549298008195072" target="_blank" rel="noopener noreferrer"
+                class="social-link" aria-label="Discord">
+                <i class="fa-brands fa-discord"></i>
+                <span class="social-tooltip">Discord</span>
+            </a>
+            <!-- YouTube Link -->
+            <a href="https://www.youtube.com/@inamium1730" target="_blank" rel="noopener noreferrer" class="social-link"
+                aria-label="YouTube">
+                <i class="fa-brands fa-youtube"></i>
+                <span class="social-tooltip">YouTube</span>
+            </a>
+            <!-- Roblox Link -->
+            <a href="https://www.roblox.com/ja/users/4915026600/profile" target="_blank" rel="noopener noreferrer"
+                class="social-link" aria-label="Roblox">
+                <span class="svg-icon roblox-svg-icon"></span>
+                <span class="social-tooltip">Roblox</span>
             </a>
         </div>
     </main>
 
     <script src="assets/scripts/index.js"></script>
 </body>
+
 </html>
