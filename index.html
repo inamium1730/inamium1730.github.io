@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Profile | inamium1730</title>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="assets/styles/style.css">
+    <link rel="stylesheet" href="assets/styles/index.css">
+</head>
+<body>
+    <!-- Theme Toggle Button -->
+    <button id="theme-toggle" class="theme-toggle-btn" aria-label="Toggle Theme">
+        <i class="fas fa-moon" id="theme-icon"></i>
+    </button>
+
+    <!-- Animated Background -->
+    <div class="bg-shapes">
+        <div class="shape shape-1"></div>
+        <div class="shape shape-2"></div>
+        <div class="shape shape-3"></div>
+    </div>
+
+    <!-- Profile Card -->
+    <main class="profile-card">
+        <div class="avatar-container">
+            <img id="profile-image" class="avatar skeleton" src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=" alt="Profile Image">
+            <div class="status-badge" style="display: none;" id="status-badge"></div>
+        </div>
+
+        <div class="name-wrapper">
+            <div class="copy-btn-spacer"></div>
+            <h1 id="profile-name" class="name skeleton" style="min-height: 40px; border-radius: 8px; width: 60%;"></h1>
+            <button id="copy-name-btn" class="copy-name-btn" aria-label="Copy Name" title="名前をコピー">
+                <i class="fas fa-copy" id="copy-name-icon"></i>
+            </button>
+        </div>
+        <p id="profile-bio" class="bio skeleton" style="min-height: 60px; border-radius: 8px; margin-bottom: 2.5rem; width: 90%; margin-left: auto; margin-right: auto;"></p>
+
+        <div class="social-links">
+            <!-- GitHub Link (Dynamic) -->
+            <a id="github-link" href="https://github.com/inamium1730" target="_blank" rel="noopener noreferrer" class="social-link" title="GitHub">
+                <i class="fab fa-github"></i>
+            </a>
+            <!-- X (Twitter) Link -->
+            <a href="https://x.com/" target="_blank" rel="noopener noreferrer" class="social-link" title="X (Twitter)">
+                <i class="fa-brands fa-x-twitter"></i>
+            </a>
+            <!-- Other SNS / Links -->
+            <a href="#" target="_blank" rel="noopener noreferrer" class="social-link" title="Website / Portfolio">
+                <i class="fas fa-link"></i>
+            </a>
+        </div>
+    </main>
+
+    <script src="assets/scripts/index.js"></script>
+</body>
+</html>
