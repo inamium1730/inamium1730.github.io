@@ -8,13 +8,6 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     const applyTheme = (theme) => {
         document.documentElement.setAttribute('data-theme', theme);
-        if (theme === 'dark') {
-            themeIcon.classList.remove('fa-sun');
-            themeIcon.classList.add('fa-moon');
-        } else {
-            themeIcon.classList.remove('fa-moon');
-            themeIcon.classList.add('fa-sun');
-        }
     };
 
     // Apply initial theme
@@ -50,18 +43,80 @@ document.addEventListener("DOMContentLoaded", async () => {
     // Name copy logic
     const copyNameBtn = document.getElementById('copy-name-btn');
     const copyNameIcon = document.getElementById('copy-name-icon');
+    const copyBubble = document.getElementById('copy-bubble');
+    const nameWrapper = document.getElementById('name-wrapper');
+    const copyBtnContainer = document.querySelector('.copy-btn-container');
     
+    const copyMessages = [
+        "コピーされました！", // 1
+        "ダブルコピー！",    // 2
+        "トリプルコピー！",  // 3
+        "連続コピー！",      // 4
+        "コピー記録更新！",  // 5
+        "コピーの天才！",    // 6
+        "誰にも止められない！",// 7
+        "超絶コピー記録！",  // 8
+        "コピーモンスター！！",// 9
+        "神レベル！！！",    // 10
+        "神超え！！！！"     // 11
+    ];
+
+    let copyCombo = 0;
+    let lastBubbleHideTime = 0;
+    let bubbleVisible = false;
+
+    // Reset combo when mouse leaves name-wrapper
+    nameWrapper.addEventListener('mouseleave', () => {
+        if (!bubbleVisible) {
+            copyCombo = 0;
+        }
+    });
+
     copyNameBtn.addEventListener('click', async () => {
+        if (bubbleVisible) return; // Prevent copy while bubble is showing
+
+        const now = Date.now();
+        if (copyCombo > 0 && (now - lastBubbleHideTime) <= 250) {
+            copyCombo++;
+        } else {
+            copyCombo = 1;
+        }
+
+        if (copyCombo > 11) copyCombo = 11;
+
         try {
             await navigator.clipboard.writeText(profileName.textContent);
-            copyNameIcon.classList.remove('fa-copy');
-            copyNameIcon.classList.add('fa-check');
-            copyNameIcon.style.color = '#22c55e';
+            
+            bubbleVisible = true;
+            copyBtnContainer.classList.add('bubble-active');
+            nameWrapper.classList.add('force-hover');
+
+            const msgIndex = copyCombo - 1;
+            copyBubble.textContent = copyMessages[msgIndex];
+
+            if (copyCombo >= 10) {
+                copyBubble.classList.add('red', 'shake');
+            } else {
+                copyBubble.classList.remove('red', 'shake');
+            }
+
+            copyBubble.classList.add('show');
+
             setTimeout(() => {
-                copyNameIcon.classList.remove('fa-check');
-                copyNameIcon.classList.add('fa-copy');
-                copyNameIcon.style.color = '';
-            }, 2000);
+                copyBubble.classList.remove('show');
+                bubbleVisible = false;
+                lastBubbleHideTime = Date.now();
+                
+                // Delay removal of classes so transition works smoothly
+                setTimeout(() => {
+                    if (!bubbleVisible) {
+                        copyBtnContainer.classList.remove('bubble-active');
+                        nameWrapper.classList.remove('force-hover');
+                    }
+                }, 200);
+
+            }, 1000);
+
         } catch (err) {
             console.error('Failed to copy: ', err);
         }

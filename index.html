@@ -14,7 +14,7 @@
 <body>
     <!-- Theme Toggle Button -->
     <button id="theme-toggle" class="theme-toggle-btn" aria-label="Toggle Theme">
-        <i class="fas fa-moon" id="theme-icon"></i>
+        <span class="svg-icon theme-svg-icon" id="theme-icon"></span>
     </button>
 
     <!-- Animated Background -->
@@ -31,12 +31,16 @@
             <div class="status-badge" style="display: none;" id="status-badge"></div>
         </div>
 
-        <div class="name-wrapper">
+        <div class="name-wrapper" id="name-wrapper">
             <div class="copy-btn-spacer"></div>
             <h1 id="profile-name" class="name skeleton" style="min-height: 40px; border-radius: 8px; width: 60%;"></h1>
-            <button id="copy-name-btn" class="copy-name-btn" aria-label="Copy Name" title="名前をコピー">
-                <i class="fas fa-copy" id="copy-name-icon"></i>
-            </button>
+            <div class="copy-btn-container">
+                <div class="copy-tooltip" id="copy-tooltip">名前をコピー</div>
+                <div class="copy-bubble" id="copy-bubble">コピーされました！</div>
+                <button id="copy-name-btn" class="copy-name-btn" aria-label="Copy Name">
+                    <span class="svg-icon copy-svg-icon" id="copy-name-icon"></span>
+                </button>
+            </div>
         </div>
         <p id="profile-bio" class="bio skeleton" style="min-height: 60px; border-radius: 8px; margin-bottom: 2.5rem; width: 90%; margin-left: auto; margin-right: auto;"></p>
 
