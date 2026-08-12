@@ -113,6 +113,7 @@ document.addEventListener("DOMContentLoaded", () => {
     let globalSpeedMult = 1.75;
 
     let currentStage = 1;
+    let stageTitleShowTime = 0;
     let enemies = [];
     let enemyBullets = [];
     let particles = [];
@@ -1632,9 +1633,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
             let maxStage = parseInt(localStorage.getItem('404_max_stage') || '1', 10);
             if (maxStage > 1) {
-                ctx.fillStyle = '#facc15';
+                ctx.fillStyle = '#fff';
                 ctx.font = '14px "Press Start 2P"';
-                let switchText = isMobile ? "タップでステージ切り替え (STAGE:" + currentStage + ")" : "TAB でステージ切り替え (STAGE:" + currentStage + ")";
+                let switchText = isMobile ? "2本指タップで順送り / 3本指タップで逆順" : "TAB でステージ切り替え";
                 ctx.fillText(switchText, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 60);
             }
         }
@@ -1675,6 +1676,18 @@ document.addEventListener("DOMContentLoaded", () => {
             ctx.font = '18px "Press Start 2P"';
             let text = isMobile ? "画面をタップしてリトライ" : "Space を押してリトライ";
             ctx.fillText(text, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 20);
+        }
+
+        if (Date.now() < stageTitleShowTime) {
+            let elapsed = 2000 - (stageTitleShowTime - Date.now());
+            let alpha = 1.0;
+            if (elapsed > 1000) {
+                alpha = 1.0 - ((elapsed - 1000) / 1000);
+            }
+            ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+            ctx.font = '24px "Press Start 2P"';
+            ctx.textAlign = 'center';
+            ctx.fillText("Stage " + currentStage + " - 404", CANVAS_WIDTH / 2, CANVAS_HEIGHT - 60);
         }
     };
 
@@ -1765,13 +1778,16 @@ document.addEventListener("DOMContentLoaded", () => {
                 let maxStage = parseInt(localStorage.getItem('404_max_stage') || '1', 10);
                 if (maxStage > 1) {
                     e.preventDefault();
-                    if (e.touches.length >= 2) {
+                    if (e.touches.length === 3) {
                         currentStage -= 2;
                         while (currentStage < 1) currentStage += maxStage;
-                    } else {
+                    } else if (e.touches.length === 2) {
                         currentStage = currentStage >= maxStage ? 1 : currentStage + 1;
                     }
-                    resetGame(false);
+                    if (e.touches.length >= 2) {
+                        resetGame(false);
+                        stageTitleShowTime = Date.now() + 2000;
+                    }
                 }
             }
         }
@@ -1798,6 +1814,7 @@ document.addEventListener("DOMContentLoaded", () => {
                             currentStage = currentStage >= maxStage ? 1 : currentStage + 1;
                         }
                         resetGame(false);
+                        stageTitleShowTime = Date.now() + 2000;
                     }
                 }
 
