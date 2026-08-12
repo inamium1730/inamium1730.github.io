@@ -115,6 +115,7 @@ document.addEventListener("DOMContentLoaded", () => {
     let currentStage = 1;
     let enemies = [];
     let enemyBullets = [];
+    let particles = [];
     let lastEnemySpawnTime = 0;
     let enemySpawnCount = 0;
     let stars = [];
@@ -180,6 +181,38 @@ document.addEventListener("DOMContentLoaded", () => {
         "FFF      OOOOOO   UUUUUU  NNN  NNN DDDDDD  "
     ];
 
+    const MAP4 = [
+        "DDDDDDD    RRRRRRR      OOOOO    PPPPPPP  ",
+        "DDDDDDDD   RRRRRRRR    OOOOOOO   PPPPPPPP ",
+        "DDDDDDDDD  RRRRRRRRR  OOOOOOOOO  PPPPPPPPP",
+        "DDD   DDD  RRR   RRR  OOO   OOO  PPP   PPP",
+        "DDD   DDD  RRRRRRRRR  OOO   OOO  PPPPPPPPP",
+        "DDD   DDD  RRRRRRRR   OOO   OOO  PPPPPPPP ",
+        "DDDDDDDDD  RRR  RRR   OOOOOOOOO  PPP      ",
+        "DDDDDDDD   RRR   RRR   OOOOOOO   PPP      ",
+        "DDDDDDD    RRR   RRR    OOOOO    PPP      "
+    ];
+
+    const MAP5 = [
+        "      LLLL   FFFFF   RRRR      ",
+        "     LLLLL  FFFFFFF  RRRRR     ",
+        "    LL  LL FFF   FFF RR  RR    ",
+        "   LL   LL FFF   FFF RR   RR   ",
+        "  LL    LL FFF   FFF RR    RR  ",
+        " LLLLLLLLL FFF   FFF RRRRRRRRR ",
+        "LLLLLLLLLL FFF   FFF RRRRRRRRRR",
+        "        LL  FFFFFFF  RR        ",
+        "        LL   FFFFF   RR        "
+    ];
+
+    let bossState = {
+        active: false,
+        stunUntil: 0,
+        leftHand: { state: 'IDLE', timer: 0, xOffset: 0, yOffset: 0, targetX: 0, hit: false, hp: 0, maxHp: 0 },
+        rightHand: { state: 'IDLE', timer: 0, xOffset: 0, yOffset: 0, targetX: 0, hit: false, hp: 0, maxHp: 0 },
+        face: { state: 'IDLE', timer: 0, xOffset: 0, yOffset: 0, hp: 0, maxHp: 0 }
+    };
+
     const initBlocks = () => {
         blocks = [];
         const blockW = 18;
@@ -187,13 +220,23 @@ document.addEventListener("DOMContentLoaded", () => {
         let selectedMap = MAP1;
         if (currentStage === 2) selectedMap = MAP2;
         if (currentStage === 3) selectedMap = MAP3;
+        if (currentStage === 4) selectedMap = MAP4;
+        if (currentStage === 5) selectedMap = MAP5;
+
+        let lCount = 0; let fCount = 0; let rCount = 0;
 
         const startX = (CANVAS_WIDTH - (selectedMap[0].length * blockW)) / 2;
         const startY = 100;
         for (let r = 0; r < selectedMap.length; r++) {
             for (let c = 0; c < selectedMap[r].length; c++) {
-                const char = selectedMap[r][c];
+                let char = selectedMap[r][c];
                 if (char !== ' ') {
+                    let part = null;
+                    if (currentStage === 5) {
+                        if (char === 'L') { part = 'leftHand'; char = '4'; lCount++; }
+                        else if (char === 'F') { part = 'face'; char = '0'; fCount++; }
+                        else if (char === 'R') { part = 'rightHand'; char = '4'; rCount++; }
+                    }
                     blocks.push({
                         x: startX + c * blockW,
                         y: startY + r * blockH,
@@ -201,10 +244,23 @@ document.addEventListener("DOMContentLoaded", () => {
                         h: blockH,
                         char: char,
                         active: true,
-                        itemType: null
+                        itemType: null,
+                        part: part,
+                        baseX: startX + c * blockW,
+                        baseY: startY + r * blockH
                     });
                 }
             }
+        }
+
+        if (currentStage === 5) {
+            bossState.active = true;
+            bossState.stunUntil = 0;
+            bossState.leftHand = { state: 'IDLE', timer: Date.now() + 2000, xOffset: 0, yOffset: 0, targetX: 0, hit: false, hp: lCount, maxHp: lCount };
+            bossState.rightHand = { state: 'IDLE', timer: Date.now() + 5000, xOffset: 0, yOffset: 0, targetX: 0, hit: false, hp: rCount, maxHp: rCount };
+            bossState.face = { state: 'IDLE', timer: Date.now() + 30000, xOffset: 0, yOffset: 0, hp: fCount, maxHp: fCount };
+        } else {
+            bossState.active = false;
         }
 
         let totalBlocksCount = blocks.length;
@@ -219,14 +275,37 @@ document.addEventListener("DOMContentLoaded", () => {
         for (let i = 0; i < normal2Count; i++) typesToAssign.push('normal_2');
         for (let i = 0; i < normal1Count; i++) typesToAssign.push('normal_1');
 
-        let availableIndices = Array.from({ length: blocks.length }, (_, i) => i);
+        if (currentStage === 5) {
+            let handIndices = [];
+            let faceIndices = [];
+            for (let i = 0; i < blocks.length; i++) {
+                if (blocks[i].part === 'leftHand' || blocks[i].part === 'rightHand') handIndices.push(i);
+                else if (blocks[i].part === 'face') faceIndices.push(i);
+            }
 
-        for (let type of typesToAssign) {
-            if (availableIndices.length === 0) break;
-            let randIdx = Math.floor(Math.random() * availableIndices.length);
-            let blockIdx = availableIndices[randIdx];
-            blocks[blockIdx].itemType = type;
-            availableIndices.splice(randIdx, 1);
+            for (let type of typesToAssign) {
+                let useHand = Math.random() < 0.8;
+                if (useHand && handIndices.length === 0) useHand = false;
+                if (!useHand && faceIndices.length === 0) useHand = true;
+
+                let targetList = useHand ? handIndices : faceIndices;
+                if (targetList.length === 0) break;
+
+                let randIdx = Math.floor(Math.random() * targetList.length);
+                let blockIdx = targetList[randIdx];
+                blocks[blockIdx].itemType = type;
+                targetList.splice(randIdx, 1);
+            }
+        } else {
+            let availableIndices = Array.from({ length: blocks.length }, (_, i) => i);
+
+            for (let type of typesToAssign) {
+                if (availableIndices.length === 0) break;
+                let randIdx = Math.floor(Math.random() * availableIndices.length);
+                let blockIdx = availableIndices[randIdx];
+                blocks[blockIdx].itemType = type;
+                availableIndices.splice(randIdx, 1);
+            }
         }
     };
 
@@ -256,13 +335,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const resetGame = (advanceStage = false) => {
         if (advanceStage) {
-            currentStage = currentStage >= 3 ? 1 : currentStage + 1;
+            currentStage = currentStage >= 5 ? 1 : currentStage + 1;
         }
         score = 0;
         reserve = ['4', '0', '4'];
 
         enemies = [];
         enemyBullets = [];
+        particles = [];
         lastEnemySpawnTime = Date.now();
         enemySpawnCount = 0;
         paddle.foundEndTime = 0;
@@ -381,12 +461,23 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         if (gameState === 'PLAYING') {
+            particles.forEach(p => {
+                p.x += p.vx * globalSpeedMult;
+                p.y += p.vy * globalSpeedMult;
+                p.life -= globalSpeedMult;
+            });
+            particles = particles.filter(p => p.life > 0);
+
             if (keys.left) paddle.x -= 8 * globalSpeedMult;
             if (keys.right) paddle.x += 8 * globalSpeedMult;
             if (paddle.x < 0) paddle.x = 0;
             if (paddle.x > CANVAS_WIDTH - paddle.w) paddle.x = CANVAS_WIDTH - paddle.w;
 
+            let stopBalls = currentStage === 5 && bossState.active && (bossState.face.state === 'DYING' || bossState.face.state === 'DEAD');
+            
             balls.forEach(b => {
+                if (stopBalls) return;
+                
                 let currentBaseSpeed = Math.sqrt(b.vx * b.vx + b.vy * b.vy);
                 let minVy = currentBaseSpeed * 0.25;
                 if (Math.abs(b.vy) < minVy) {
@@ -414,6 +505,7 @@ document.addEventListener("DOMContentLoaded", () => {
                         b.isEnhanced = true;
 
                         let hitFactor = (b.x - (paddle.x + paddle.w / 2)) / (paddle.w / 2);
+                        hitFactor = Math.max(-1, Math.min(1, hitFactor));
                         let maxVx = currentBaseSpeed * 0.85;
                         let normalVx = hitFactor * maxVx;
                         let normalVy = -Math.sqrt(currentBaseSpeed * currentBaseSpeed - normalVx * normalVx);
@@ -424,6 +516,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     } else {
                         b.isEnhanced = false;
                         let hitFactor = (b.x - (paddle.x + paddle.w / 2)) / (paddle.w / 2);
+                        hitFactor = Math.max(-1, Math.min(1, hitFactor));
                         let maxVx = currentBaseSpeed * 0.85;
                         b.vx = hitFactor * maxVx;
                         b.vy = -Math.sqrt(currentBaseSpeed * currentBaseSpeed - b.vx * b.vx);
@@ -432,15 +525,81 @@ document.addEventListener("DOMContentLoaded", () => {
                     playBeep(800);
                 }
 
+                // Manage ignored parts for boss hands
+                if (currentStage === 5 && bossState.active) {
+                    if (!b.ignoredParts) b.ignoredParts = new Set();
+                    let br = { x: b.x - b.size / 2, y: b.y - b.size / 2, w: b.size, h: b.size };
+
+                    ['leftHand', 'rightHand'].forEach(part => {
+                        let pState = bossState[part];
+                        if (pState.state !== 'IDLE') {
+                            b.ignoredParts.add(part);
+                        } else {
+                            let intersecting = false;
+                            let partBlocks = blocks.filter(blk => blk.active && blk.part === part);
+                            for (let blk of partBlocks) {
+                                let blockR = { x: blk.x, y: blk.y, w: blk.w, h: blk.h };
+                                if (rectIntersect(br, blockR)) {
+                                    intersecting = true;
+                                    break;
+                                }
+                            }
+                            if (!intersecting) {
+                                b.ignoredParts.delete(part);
+                            }
+                        }
+                    });
+                }
+
                 // Block collision
                 for (let bl of blocks) {
                     if (!bl.active) continue;
+
+                    if (currentStage === 5 && bl.part) {
+                        let pState = bossState[bl.part];
+                        if (pState.state === 'DYING' || pState.state === 'DEAD') {
+                            continue;
+                        }
+                        if (b.ignoredParts && b.ignoredParts.has(bl.part)) {
+                            continue;
+                        }
+                    }
+
                     let br = { x: b.x - b.size / 2, y: b.y - b.size / 2, w: b.size, h: b.size };
                     let blockR = { x: bl.x, y: bl.y, w: bl.w, h: bl.h };
                     if (rectIntersect(br, blockR)) {
-                        bl.active = false;
-                        score++;
-                        playBeep(200);
+                        let isInvincible = false;
+                        if (currentStage === 5 && bl.part) {
+                            if (bl.part === 'face' && (bossState.leftHand.hp > 0 || bossState.rightHand.hp > 0)) {
+                                isInvincible = true;
+                                playBeep(300);
+                            } else {
+                                bl.active = false;
+                                score++;
+                                playBeep(200);
+                                bossState[bl.part].hp--;
+
+                                if (bl.part === 'leftHand' && bossState.leftHand.hp < bossState.leftHand.maxHp * 0.2) {
+                                    bossState.leftHand.hp = 0;
+                                    bossState.leftHand.state = 'DYING';
+                                    bossState.leftHand.timer = Date.now() + 2000;
+                                }
+                                else if (bl.part === 'rightHand' && bossState.rightHand.hp < bossState.rightHand.maxHp * 0.2) {
+                                    bossState.rightHand.hp = 0;
+                                    bossState.rightHand.state = 'DYING';
+                                    bossState.rightHand.timer = Date.now() + 2000;
+                                }
+                                else if (bl.part === 'face' && bossState.face.hp < bossState.face.maxHp * 0.1) {
+                                    bossState.face.hp = 0;
+                                    bossState.face.state = 'DYING';
+                                    bossState.face.timer = Date.now() + 4000;
+                                }
+                            }
+                        } else {
+                            bl.active = false;
+                            score++;
+                            playBeep(200);
+                        }
 
                         let overlapLeft = (br.x + br.w) - blockR.x;
                         let overlapRight = (blockR.x + blockR.w) - br.x;
@@ -448,7 +607,7 @@ document.addEventListener("DOMContentLoaded", () => {
                         let overlapBottom = (blockR.y + blockR.h) - br.y;
                         let minOverlap = Math.min(overlapLeft, overlapRight, overlapTop, overlapBottom);
 
-                        if (!(b.isEnhanced && Date.now() < paddle.nBuffEndTime)) {
+                        if (!(b.isEnhanced && Date.now() < paddle.nBuffEndTime) || isInvincible) {
                             if (minOverlap === overlapLeft || minOverlap === overlapRight) {
                                 b.vx *= -1;
                             } else {
@@ -456,8 +615,10 @@ document.addEventListener("DOMContentLoaded", () => {
                             }
                         }
 
-                        if (bl.itemType) {
-                            if (bl.itemType === 'nbuff') {
+                        if (bl.itemType && !isInvincible) {
+                            let droppedItemType = bl.itemType;
+                            bl.itemType = null;
+                            if (droppedItemType === 'nbuff') {
                                 if (Date.now() < paddle.nBuffEndTime || items.filter(i => i.char === 'N').length >= 1) {
                                     transferItem('nbuff');
                                 } else {
@@ -471,11 +632,11 @@ document.addEventListener("DOMContentLoaded", () => {
                                         size: 20
                                     });
                                 }
-                            } else if (bl.itemType.startsWith('normal_')) {
-                                let req = parseInt(bl.itemType.split('_')[1]);
+                            } else if (droppedItemType.startsWith('normal_')) {
+                                let req = parseInt(droppedItemType.split('_')[1]);
                                 if (reserve.length <= req) {
                                     if (items.filter(i => i.type !== 'nbuff').length >= 2) {
-                                        transferItem(bl.itemType);
+                                        transferItem(droppedItemType);
                                     } else {
                                         const itemChar = Math.random() < 0.5 ? '4' : '0';
                                         const needed = getNeededHealChar();
@@ -521,7 +682,8 @@ document.addEventListener("DOMContentLoaded", () => {
                             }
                             if (en.hp <= 0) {
                                 en.dead = true;
-                                if (currentStage !== 3 || Math.random() < 0.5) {
+                                let maxEnemies = currentStage === 5 ? 2 : (currentStage === 4 ? 6 : (currentStage === 3 ? 4 : 2));
+                                if (Math.random() < 2 / maxEnemies) {
                                     const itemChar = Math.random() < 0.5 ? '4' : '0';
                                     const needed = getNeededHealChar();
                                     let type = 'multiball'; let color = '#facc15';
@@ -553,6 +715,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     if (Date.now() < paddle.nBuffEndTime) {
                         b.isEnhanced = true;
                         let hitFactor = (b.x - (paddle.x + paddle.w / 2)) / (paddle.w / 2);
+                        hitFactor = Math.max(-1, Math.min(1, hitFactor));
                         let maxVx = currentBaseSpeed * 0.85;
                         let normalVx = hitFactor * maxVx;
                         let normalVy = -Math.sqrt(currentBaseSpeed * currentBaseSpeed - normalVx * normalVx);
@@ -562,6 +725,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     } else {
                         b.isEnhanced = false;
                         let hitFactor = (b.x - (paddle.x + paddle.w / 2)) / (paddle.w / 2);
+                        hitFactor = Math.max(-1, Math.min(1, hitFactor));
                         let maxVx = currentBaseSpeed * 0.85;
                         b.vx = hitFactor * maxVx;
                         b.vy = -Math.sqrt(currentBaseSpeed * currentBaseSpeed - b.vx * b.vx);
@@ -618,24 +782,44 @@ document.addEventListener("DOMContentLoaded", () => {
             items = items.filter(i => !i.caught && i.y < CANVAS_HEIGHT + 50);
 
             if (currentStage >= 2) {
-                let spawnInterval = currentStage === 3 ? 8000 : 16000;
-                let maxEnemies = currentStage === 3 ? 6 : 3;
+                if (currentStage <= 4) {
+                    let spawnInterval = currentStage === 4 ? 10000 : (currentStage === 3 ? 15000 : 20000);
+                    let maxEnemies = currentStage === 4 ? 6 : (currentStage === 3 ? 4 : 2);
 
-                if (Date.now() - lastEnemySpawnTime > spawnInterval && enemies.length < maxEnemies) {
-                    enemySpawnCount++;
-                    let isFound = currentStage === 3 && (enemySpawnCount % 3 === 0);
-                    enemies.push({
-                        x: Math.random() * (CANVAS_WIDTH - (isFound ? 180 : 120)) + (isFound ? 90 : 60),
-                        y: 50,
-                        w: isFound ? 160 : 96,
-                        h: 32,
-                        vx: Math.random() < 0.5 ? 0.5 : -0.5,
-                        hp: isFound ? 5 : 3,
-                        type: isFound ? 'FOUND' : 'NOT',
-                        lastShootTime: Date.now(),
-                        lastHitTime: 0
-                    });
-                    lastEnemySpawnTime = Date.now();
+                    if (Date.now() - lastEnemySpawnTime > spawnInterval && enemies.length < maxEnemies) {
+                        enemySpawnCount++;
+                        let isFound = false;
+                        let isDrop = false;
+
+                        if (currentStage === 4) {
+                            if (enemySpawnCount % 4 === 0) {
+                                isDrop = true;
+                            } else if (enemySpawnCount % 3 === 0) {
+                                isFound = true;
+                            }
+                        } else if (currentStage === 3) {
+                            if (enemySpawnCount % 3 === 0) {
+                                isFound = true;
+                            }
+                        }
+
+                        let enType = isDrop ? 'DROP' : (isFound ? 'FOUND' : 'NOT');
+                        let enW = isDrop ? 128 : (isFound ? 160 : 96);
+                        let enHp = isDrop ? 4 : (isFound ? 5 : 3);
+
+                        enemies.push({
+                            x: Math.random() * (CANVAS_WIDTH - enW) + (enW / 2),
+                            y: 50,
+                            w: enW,
+                            h: 32,
+                            vx: Math.random() < 0.5 ? 0.5 : -0.5,
+                            hp: enHp,
+                            type: enType,
+                            lastShootTime: Date.now(),
+                            lastHitTime: 0
+                        });
+                        lastEnemySpawnTime = Date.now();
+                    }
                 }
 
                 enemies.forEach(en => {
@@ -650,9 +834,21 @@ document.addEventListener("DOMContentLoaded", () => {
                         en.y += 20;
                     }
 
-                    let shootInterval = en.type === 'FOUND' ? 5000 + Math.random() * 2000 : 3000 + Math.random() * 2000;
+                    let shootInterval = en.type === 'DROP' ? 4000 + Math.random() * 2000 : (en.type === 'FOUND' ? 5000 + Math.random() * 2000 : 3000 + Math.random() * 2000);
                     if (Date.now() - en.lastShootTime > shootInterval) {
-                        if (en.type === 'FOUND') {
+                        if (en.type === 'DROP') {
+                            enemyBullets.push({
+                                x: en.x,
+                                y: en.y + 20,
+                                startY: en.y + 20,
+                                w: 16, h: 48,
+                                vx: 0,
+                                vy: 2, // 50% slower
+                                type: 'DROP_BULLET',
+                                dead: false,
+                                exploded: false
+                            });
+                        } else if (en.type === 'FOUND') {
                             let targetX = paddle.x + paddle.w / 2;
                             let targetY = paddle.y + paddle.h / 2;
                             let dx = targetX - en.x;
@@ -683,9 +879,36 @@ document.addEventListener("DOMContentLoaded", () => {
                     }
                 });
 
-                enemyBullets.forEach(bull => {
+                // Duplicate enemyBullets array to allow adding new bullets during iteration safely
+                let currentBullets = [...enemyBullets];
+                currentBullets.forEach(bull => {
+                    if (bull.dead) return;
                     bull.x += bull.vx * globalSpeedMult;
                     bull.y += bull.vy * globalSpeedMult;
+
+                    if (bull.type === 'DROP_BULLET' && !bull.exploded && bull.y >= Math.max(CANVAS_HEIGHT / 2, (bull.startY || 0) + 150)) {
+                        bull.exploded = true;
+                        bull.dead = true;
+                        let angles = [0, 45, 90, 135, 180, 225, 270, 315];
+                        angles.forEach(deg => {
+                            let rad = deg * Math.PI / 180;
+                            enemyBullets.push({
+                                x: bull.x,
+                                y: bull.y,
+                                w: 16, h: 16,
+                                vx: Math.cos(rad) * 4,
+                                vy: Math.sin(rad) * 4,
+                                type: 'SCATTERED_BULLET',
+                                dead: false
+                            });
+                        });
+                        return; // Skip paddle hit check for this exploded bullet
+                    }
+
+                    if (bull.type === '404_ARC') {
+                        bull.vy += 0.2 * globalSpeedMult; // Gravity effect
+                    }
+
                     // Paddle hit
                     if (!paddle.destroyed && bull.y + bull.h > paddle.y && bull.y < paddle.y + paddle.h && bull.x + bull.w > paddle.x && bull.x < paddle.x + paddle.w) {
                         bull.dead = true;
@@ -705,6 +928,267 @@ document.addEventListener("DOMContentLoaded", () => {
 
                 enemies = enemies.filter(en => !en.dead && en.y < CANVAS_HEIGHT + 100);
                 enemyBullets = enemyBullets.filter(bull => !bull.dead && bull.y < CANVAS_HEIGHT);
+            }
+
+            if (currentStage === 5 && bossState.active) {
+                let face = bossState.face;
+                if (face.state === 'DYING') {
+                    face.xOffset = (Math.random() - 0.5) * 8;
+                    face.yOffset = (Math.random() - 0.5) * 8;
+                    if (Date.now() > face.timer) {
+                        face.state = 'DEAD';
+                        face.timer = Date.now() + 4000;
+                        blocks.forEach(b => { if (b.part === 'face') b.active = false; });
+
+                        let fBlocks = blocks.filter(b => b.part === 'face');
+                        if (fBlocks.length > 0) {
+                            let minX = Math.min(...fBlocks.map(b => b.x));
+                            let maxX = Math.max(...fBlocks.map(b => b.x + b.w));
+                            let minY = Math.min(...fBlocks.map(b => b.y));
+                            let maxY = Math.max(...fBlocks.map(b => b.y + b.h));
+                            for (let i = 0; i < 100; i++) {
+                                particles.push({
+                                    x: minX + Math.random() * (maxX - minX),
+                                    y: minY + Math.random() * (maxY - minY),
+                                    vx: (Math.random() - 0.5) * 20,
+                                    vy: (Math.random() - 0.5) * 20,
+                                    size: Math.random() * 10 + 5,
+                                    color: currentTheme === 'dark' ? '#ef4444' : '#dc2626',
+                                    life: 40 + Math.random() * 40,
+                                    maxLife: 80
+                                });
+                            }
+                            playBeep(100);
+                        }
+                    }
+                } else if (face.state !== 'DEAD' && face.hp > 0) {
+                    if (face.state === 'IDLE') {
+                        let handsIdle = (bossState.leftHand.hp <= 0 || bossState.leftHand.state === 'IDLE') &&
+                            (bossState.rightHand.hp <= 0 || bossState.rightHand.state === 'IDLE');
+                        if (Date.now() > face.timer && Date.now() > bossState.stunUntil && handsIdle) {
+                            if (enemies.length < 2) {
+                                face.state = 'TELEGRAPH';
+                                face.timer = Date.now() + 1500;
+                            } else {
+                                face.timer = Date.now() + 2000;
+                            }
+                        }
+                    } else if (face.state === 'TELEGRAPH') {
+                        face.yOffset = Math.sin(Date.now() / 50) * 10;
+                        if (Date.now() > face.timer) {
+                            face.yOffset = 0;
+                            face.state = 'SUMMON';
+
+                            let faceBlocks = blocks.filter(b => b.part === 'face' && b.active);
+                            if (faceBlocks.length > 0) {
+                                let cx = 0; faceBlocks.forEach(b => cx += b.baseX); cx /= faceBlocks.length;
+                                let cy = 0; faceBlocks.forEach(b => cy = Math.max(cy, b.baseY));
+
+                                let isEnhancedPhase = (bossState.leftHand.hp + bossState.rightHand.hp) <= (bossState.leftHand.maxHp + bossState.rightHand.maxHp) * 0.5;
+                                let types = isEnhancedPhase ? ['FOUND', 'DROP'] : ['NOT', 'FOUND', 'DROP'];
+                                let tIdx = Math.floor(Math.random() * types.length);
+                                let eType = types[tIdx];
+                                let eW = eType === 'DROP' ? 128 : (eType === 'FOUND' ? 160 : 96);
+                                let eHp = eType === 'DROP' ? 4 : (eType === 'FOUND' ? 5 : 3);
+
+                                enemies.push({
+                                    x: cx,
+                                    y: cy + 20,
+                                    w: eW,
+                                    h: 32,
+                                    vx: Math.random() < 0.5 ? 0.5 : -0.5,
+                                    hp: eHp,
+                                    type: eType,
+                                    lastShootTime: Date.now(),
+                                    lastHitTime: 0
+                                });
+                            }
+
+                            face.timer = Date.now() + 15000;
+                            face.state = 'IDLE';
+                            bossState.stunUntil = Date.now() + 5000;
+                        }
+                    }
+                }
+
+                let bHands = ['leftHand', 'rightHand'];
+                bHands.forEach(handName => {
+                    let hand = bossState[handName];
+                    if (hand.state === 'DYING') {
+                        hand.xOffset = (Math.random() - 0.5) * 8;
+                        hand.yOffset = (Math.random() - 0.5) * 8;
+                        if (Date.now() > hand.timer) {
+                            hand.state = 'DEAD';
+                            blocks.forEach(b => { if (b.part === handName) b.active = false; });
+
+                            let hBlocks = blocks.filter(b => b.part === handName);
+                            if (hBlocks.length > 0) {
+                                let minX = Math.min(...hBlocks.map(b => b.x));
+                                let maxX = Math.max(...hBlocks.map(b => b.x + b.w));
+                                let minY = Math.min(...hBlocks.map(b => b.y));
+                                let maxY = Math.max(...hBlocks.map(b => b.y + b.h));
+                                for (let i = 0; i < 50; i++) {
+                                    particles.push({
+                                        x: minX + Math.random() * (maxX - minX),
+                                        y: minY + Math.random() * (maxY - minY),
+                                        vx: (Math.random() - 0.5) * 15,
+                                        vy: (Math.random() - 0.5) * 15,
+                                        size: Math.random() * 8 + 4,
+                                        color: currentTheme === 'dark' ? '#ef4444' : '#dc2626',
+                                        life: 30 + Math.random() * 30,
+                                        maxLife: 60
+                                    });
+                                }
+                                playBeep(100);
+                            }
+                        }
+                        return;
+                    }
+
+                    if (hand.state === 'DEAD') return;
+
+                    if (hand.state === 'IDLE') {
+                        let otherHandName = handName === 'leftHand' ? 'rightHand' : 'leftHand';
+                        let otherHand = bossState[otherHandName];
+                        let canAct = (otherHand.hp <= 0 || otherHand.state === 'IDLE') && bossState.face.state === 'IDLE';
+
+                        if (Date.now() > hand.timer && Date.now() > bossState.stunUntil && canAct) {
+                            hand.state = 'WINDUP';
+                            hand.timer = Date.now() + 1000 + Math.random() * 1000;
+                        }
+                    } else if (hand.state === 'WINDUP') {
+                        let target = paddle.x + paddle.w / 2;
+                        let handBlocks = blocks.filter(b => b.part === handName && b.active);
+                        if (handBlocks.length > 0) {
+                            let cx = 0; handBlocks.forEach(b => cx += b.baseX); cx /= handBlocks.length;
+                            hand.targetX = target - cx;
+                        }
+                        hand.xOffset += (hand.targetX - hand.xOffset) * 0.05;
+                        hand.yOffset = -10;
+
+                        if (Date.now() > hand.timer) {
+                            hand.state = 'LOCK';
+                            hand.timer = Date.now() + 500;
+                        }
+                    } else if (hand.state === 'LOCK') {
+                        // Just blink red and wait
+                        if (Date.now() > hand.timer) {
+                            hand.state = 'PUNCH';
+                            hand.hit = false;
+                        }
+                    } else if (hand.state === 'PUNCH') {
+                        hand.yOffset += 15 * globalSpeedMult;
+                        // Drops straight down, no more tracking
+
+                        if (!hand.hit && !paddle.destroyed) {
+                            let hBlocks = blocks.filter(b => b.part === handName && b.active);
+                            for (let b of hBlocks) {
+                                let br = { x: b.x, y: b.y, w: b.w, h: b.h };
+                                let pr = { x: paddle.x, y: paddle.y, w: paddle.w, h: paddle.h };
+                                if (rectIntersect(br, pr)) {
+                                    hand.hit = true;
+                                    paddle.nBuffEndTime = 0;
+                                    if (Date.now() < paddle.ndEndTime) paddle.destroyed = true;
+                                    else if (Date.now() < paddle.foundEndTime) {
+                                        paddle.ndEndTime = Date.now() + 5000;
+                                        paddle.foundEndTime = Date.now() + 10000;
+                                    } else {
+                                        paddle.foundEndTime = Date.now() + 10000;
+                                    }
+                                    break;
+                                }
+                            }
+                        }
+
+                        let maxDrop = CANVAS_HEIGHT - 30 - 200; // Stop around ground level
+                        if (hand.yOffset > maxDrop) {
+                            hand.yOffset = maxDrop;
+                            hand.state = 'GROUNDED';
+                            hand.timer = Date.now() + 1500;
+
+                            let hBlocks = blocks.filter(b => b.part === handName && b.active);
+                            if (hBlocks.length > 0) {
+                                let minX = Math.min(...hBlocks.map(b => b.x));
+                                let maxX = Math.max(...hBlocks.map(b => b.x + b.w));
+                                let baseY = Math.max(...hBlocks.map(b => b.y + b.h));
+                                let groundY = Math.min(baseY, CANVAS_HEIGHT - 30);
+                                for (let i = 0; i < 30; i++) {
+                                    particles.push({
+                                        x: minX + Math.random() * (maxX - minX),
+                                        y: groundY - Math.random() * 20,
+                                        vx: (Math.random() - 0.5) * 10,
+                                        vy: -Math.random() * 5 - 2,
+                                        size: Math.random() * 10 + 5,
+                                        color: currentTheme === 'dark' ? '#777' : '#999',
+                                        life: 30 + Math.random() * 20,
+                                        maxLife: 50
+                                    });
+                                }
+
+                                // Phase 2 ground hit (both hands < 50% HP)
+                                if ((bossState.leftHand.hp + bossState.rightHand.hp) <= (bossState.leftHand.maxHp + bossState.rightHand.maxHp) * 0.5) {
+                                    let center = (minX + maxX) / 2;
+                                    let chars = ['4', '0', '4'];
+
+                                    // Left bullets
+                                    chars.forEach((c, i) => {
+                                        enemyBullets.push({
+                                            x: center - 20,
+                                            y: groundY,
+                                            w: 16, h: 16,
+                                            vx: -1.5 - i * 1.0,
+                                            vy: -12 + Math.random() * 2,
+                                            type: '404_ARC',
+                                            char: c,
+                                            dead: false
+                                        });
+                                    });
+
+                                    // Right bullets
+                                    chars.forEach((c, i) => {
+                                        enemyBullets.push({
+                                            x: center + 20,
+                                            y: groundY,
+                                            w: 16, h: 16,
+                                            vx: 1.5 + i * 1.0,
+                                            vy: -12 + Math.random() * 2,
+                                            type: '404_ARC',
+                                            char: c,
+                                            dead: false
+                                        });
+                                    });
+                                }
+                            }
+                        }
+                    } else if (hand.state === 'GROUNDED') {
+                        if (Date.now() > hand.timer) {
+                            hand.state = 'RETURN';
+                        }
+                    } else if (hand.state === 'RETURN') {
+                        hand.yOffset -= 5 * globalSpeedMult;
+                        hand.xOffset -= (hand.xOffset) * 0.05;
+                        if (hand.yOffset <= 0) {
+                            hand.yOffset = 0;
+                            hand.xOffset = 0;
+                            hand.state = 'IDLE';
+                            let otherHandName = handName === 'leftHand' ? 'rightHand' : 'leftHand';
+                            let isOtherDead = bossState[otherHandName].state === 'DEAD' || bossState[otherHandName].state === 'DYING';
+                            if (isOtherDead) {
+                                hand.timer = Date.now() + 5000;
+                                bossState.stunUntil = Date.now() + 5000;
+                            } else {
+                                hand.timer = Date.now() + 2000 + Math.random() * 3000;
+                                bossState.stunUntil = Date.now() + 2500;
+                            }
+                        }
+                    }
+                });
+
+                if (bossState.face.state === 'DEAD') {
+                    if (Date.now() > bossState.face.timer) {
+                        gameState = 'GAMECLEAR';
+                    }
+                }
             }
 
             if (balls.length === 0 && gameState === 'PLAYING') {
@@ -796,6 +1280,22 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         }
 
+        if (currentStage === 4) {
+            ctx.fillStyle = currentTheme === 'dark' ? 'rgba(14, 165, 233, 0.15)' : 'rgba(56, 189, 248, 0.2)';
+            const dotSize = 8;
+            const time = Date.now() / 500;
+            for (let x = 0; x < CANVAS_WIDTH; x += dotSize) {
+                let y = CANVAS_HEIGHT - 120 + Math.sin(x / 50 + time) * 15 + Math.sin(x / 100 - time * 0.5) * 10;
+                let qY = Math.floor(y / dotSize) * dotSize;
+                ctx.fillRect(x, qY, dotSize, CANVAS_HEIGHT - qY);
+            }
+        }
+
+        if (currentStage === 5) {
+            ctx.fillStyle = currentTheme === 'dark' ? '#333' : '#ccc';
+            ctx.fillRect(0, CANVAS_HEIGHT - 30, CANVAS_WIDTH, 30);
+        }
+
         const textColor = getThemeColor('--text-main') || '#fff';
         const mutedColor = getThemeColor('--text-muted') || '#aaa';
 
@@ -805,7 +1305,43 @@ document.addEventListener("DOMContentLoaded", () => {
         ctx.fillStyle = textColor;
         blocks.forEach(bl => {
             if (bl.active) {
-                ctx.fillText(bl.char, bl.x + bl.w / 2, bl.y + bl.h / 2);
+                let bx = bl.x;
+                let by = bl.y;
+                let bColor = textColor;
+                let isRightHand = false;
+
+                if (currentStage === 5 && bl.part) {
+                    let partState = bossState[bl.part];
+                    bx = bl.baseX + partState.xOffset;
+                    by = bl.baseY + partState.yOffset;
+
+                    if (bl.part === 'rightHand') isRightHand = true;
+
+                    if (bl.part !== 'face' && (partState.state === 'LOCK' || partState.state === 'PUNCH' || partState.state === 'GROUNDED')) {
+                        if (Math.floor(Date.now() / 150) % 2 === 0) {
+                            bColor = '#ef4444';
+                        }
+                    } else if (bl.part === 'face' && partState.state === 'SUMMON') {
+                        if (Math.floor(Date.now() / 150) % 2 === 0) {
+                            bColor = '#facc15';
+                        }
+                    }
+                }
+
+                // Update active collision box to match drawn pos
+                bl.x = bx;
+                bl.y = by;
+
+                ctx.fillStyle = bColor;
+                if (isRightHand) {
+                    ctx.save();
+                    ctx.translate(bx + bl.w / 2, by + bl.h / 2);
+                    ctx.scale(-1, 1);
+                    ctx.fillText(bl.char, 0, 0);
+                    ctx.restore();
+                } else {
+                    ctx.fillText(bl.char, bx + bl.w / 2, by + bl.h / 2);
+                }
             }
         });
 
@@ -813,6 +1349,13 @@ document.addEventListener("DOMContentLoaded", () => {
         items.forEach(i => {
             ctx.fillStyle = i.color;
             ctx.fillText(i.char, i.x, i.y);
+        });
+
+        particles.forEach(p => {
+            ctx.fillStyle = p.color;
+            ctx.globalAlpha = Math.max(0, p.life / p.maxLife);
+            ctx.fillRect(p.x, p.y, p.size, p.size);
+            ctx.globalAlpha = 1.0;
         });
 
         ctx.font = '20px "Press Start 2P"';
@@ -857,6 +1400,16 @@ document.addEventListener("DOMContentLoaded", () => {
                         else ctx.globalAlpha = idx === 0 ? 1.0 : 0.3;
                         ctx.fillText(c, en.x + offsets[idx], en.y + en.h / 2);
                     });
+                } else if (en.type === 'DROP') {
+                    let chars = ['D', 'R', 'O', 'P'];
+                    let offsets = [-48, -16, 16, 48];
+                    chars.forEach((c, idx) => {
+                        if (en.hp === 4) ctx.globalAlpha = 1.0;
+                        else if (en.hp === 3) ctx.globalAlpha = idx < 3 ? 1.0 : 0.3;
+                        else if (en.hp === 2) ctx.globalAlpha = idx < 2 ? 1.0 : 0.3;
+                        else ctx.globalAlpha = idx === 0 ? 1.0 : 0.3;
+                        ctx.fillText(c, en.x + offsets[idx], en.y + en.h / 2);
+                    });
                 } else {
                     let chars = ['N', 'O', 'T'];
                     let offsets = [-32, 0, 32];
@@ -871,14 +1424,37 @@ document.addEventListener("DOMContentLoaded", () => {
             ctx.globalAlpha = 1.0;
 
             enemyBullets.forEach(bull => {
+                if (bull.type === '404_ARC') {
+                    ctx.fillStyle = (Math.floor(Date.now() / 150) % 2 === 0) ? '#ef4444' : textColor;
+                    ctx.font = '24px "Press Start 2P"';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(bull.char, bull.x, bull.y);
+                    return;
+                }
+
                 ctx.save();
                 ctx.translate(bull.x + bull.w / 2, bull.y + bull.h / 2);
                 let angle = bull.vx !== 0 ? Math.atan2(bull.vy, bull.vx) : Math.PI / 2;
+
+                let bText = "404";
+                if (bull.type === 'FOUND') bText = "FOUND";
+                else if (bull.type === 'DROP_BULLET' || bull.type === 'SCATTERED_BULLET') bText = "DROP";
+
+                let bColor = textColor;
+                if (bull.type === 'DROP_BULLET') {
+                    bColor = (Math.floor(Date.now() / 100) % 2 === 0) ? '#f97316' : textColor; // orange blink
+                } else if (bull.type === 'SCATTERED_BULLET') {
+                    bColor = (Math.floor(Date.now() / 100) % 2 === 0) ? '#ef4444' : textColor; // red blink
+                } else {
+                    bColor = (Math.floor(Date.now() / 250) % 2 === 0) ? '#ef4444' : textColor; // slow red blink
+                }
+
                 ctx.rotate(angle);
-                ctx.fillStyle = (Math.floor(Date.now() / 250) % 2 === 0) ? '#ef4444' : textColor;
+                ctx.fillStyle = bColor;
                 ctx.font = '16px "Press Start 2P"';
                 ctx.textAlign = 'center';
-                ctx.fillText(bull.type === 'FOUND' ? "FOUND" : "404", 0, 0); ctx.restore();
+                ctx.fillText(bText, 0, 0);
+                ctx.restore();
             });
         }
 
