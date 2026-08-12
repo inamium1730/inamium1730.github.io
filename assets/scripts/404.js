@@ -110,7 +110,7 @@ document.addEventListener("DOMContentLoaded", () => {
     let balls = [];
     let items = [];
     let blocks = [];
-    let globalSpeedMult = 1.25;
+    let globalSpeedMult = 1.5;
 
     let currentStage = 1;
     let enemies = [];
@@ -273,7 +273,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         balls = [];
         items = [];
-        globalSpeedMult = 1.25;
+        globalSpeedMult = 1.5;
         paddle.x = CANVAS_WIDTH / 2 - paddle.w / 2;
         paddle.nBuffEndTime = 0;
         initBlocks();
