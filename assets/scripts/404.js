@@ -318,6 +318,7 @@ document.addEventListener("DOMContentLoaded", () => {
         paddle.foundEndTime = 0;
         paddle.text = 'NOTFOUND';
         paddle.w = 260;
+        paddle.x = CANVAS_WIDTH / 2 - paddle.w / 2;
 
         balls.push({
             x: paddle.x + paddle.w / 2,
@@ -330,12 +331,38 @@ document.addEventListener("DOMContentLoaded", () => {
             isEnhanced: false
         });
         paddle.nBuffEndTime = 0;
+        paddle.isSpawning = true;
+        paddle.invincibleEndTime = 0;
         return true;
+    };
+
+    const spawnPaddleParticles = () => {
+        for (let i = 0; i < 40; i++) {
+            particles.push({
+                x: paddle.x + Math.random() * paddle.w,
+                y: paddle.y + Math.random() * paddle.h,
+                vx: (Math.random() - 0.5) * 15,
+                vy: (Math.random() - 0.5) * 15,
+                size: Math.random() * 8 + 4,
+                color: currentTheme === 'dark' ? '#ef4444' : '#dc2626',
+                life: 30 + Math.random() * 40,
+                maxLife: 70
+            });
+        }
+        playBeep(150);
     };
 
     const resetGame = (advanceStage = false) => {
         if (advanceStage) {
-            currentStage = currentStage >= 5 ? 1 : currentStage + 1;
+            let nextStage = currentStage >= 5 ? 1 : currentStage + 1;
+            let maxStage = parseInt(localStorage.getItem('404_max_stage') || '1', 10);
+            if (currentStage < 5 && nextStage > maxStage) {
+                localStorage.setItem('404_max_stage', nextStage);
+            }
+            if (currentStage === 5) {
+                localStorage.setItem('404_max_stage', 5);
+            }
+            currentStage = nextStage;
         }
         score = 0;
         reserve = ['4', '0', '4'];
@@ -474,10 +501,10 @@ document.addEventListener("DOMContentLoaded", () => {
             if (paddle.x > CANVAS_WIDTH - paddle.w) paddle.x = CANVAS_WIDTH - paddle.w;
 
             let stopBalls = currentStage === 5 && bossState.active && (bossState.face.state === 'DYING' || bossState.face.state === 'DEAD');
-            
+
             balls.forEach(b => {
                 if (stopBalls) return;
-                
+
                 let currentBaseSpeed = Math.sqrt(b.vx * b.vx + b.vy * b.vy);
                 let minVy = currentBaseSpeed * 0.25;
                 if (Math.abs(b.vy) < minVy) {
@@ -532,7 +559,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
                     ['leftHand', 'rightHand'].forEach(part => {
                         let pState = bossState[part];
-                        if (pState.state !== 'IDLE') {
+                        if (pState.state === 'LOCK' || pState.state === 'PUNCH' || pState.state === 'GROUNDED') {
                             b.ignoredParts.add(part);
                         } else {
                             let intersecting = false;
@@ -757,9 +784,6 @@ document.addEventListener("DOMContentLoaded", () => {
                         }
                     } else if (item.type === 'nbuff') {
                         paddle.nBuffEndTime = Date.now() + 11000;
-                        paddle.foundEndTime = 0; // Cancel debuffs if active
-                        paddle.ndEndTime = 0;
-                        paddle.destroyed = false;
                     } else {
                         let isEnhanced = false;
                         let vx = (Math.random() > 0.5 ? 1 : -1) * 1.25;
@@ -912,7 +936,7 @@ document.addEventListener("DOMContentLoaded", () => {
                         });
                         return; // Skip paddle hit check for this exploded bullet
                     }
-                    
+
                     if (bull.type === '404NOTFOUND_BASE') {
                         let dx = bull.x - bull.startX;
                         let dy = bull.y - bull.startY;
@@ -942,12 +966,12 @@ document.addEventListener("DOMContentLoaded", () => {
                     }
 
                     // Paddle hit
-                    if (!paddle.destroyed && bull.y + bull.h > paddle.y && bull.y < paddle.y + paddle.h && bull.x + bull.w > paddle.x && bull.x < paddle.x + paddle.w) {
+                    if (!paddle.destroyed && Date.now() > (paddle.invincibleEndTime || 0) && bull.y + bull.h > paddle.y && bull.y < paddle.y + paddle.h && bull.x + bull.w > paddle.x && bull.x < paddle.x + paddle.w) {
                         bull.dead = true;
-                        paddle.nBuffEndTime = 0; // Cancel N buff if active
-
+                        
                         if (Date.now() < paddle.ndEndTime) {
                             paddle.destroyed = true;
+                            spawnPaddleParticles();
                         } else if (Date.now() < paddle.foundEndTime) {
                             paddle.ndEndTime = Date.now() + 5000;
                             paddle.foundEndTime = Date.now() + 10000;
@@ -964,10 +988,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
             if (currentStage === 5 && bossState.active) {
                 let face = bossState.face;
-                
+
                 if (bossState.leftHand.state === 'DEAD' && bossState.rightHand.state === 'DEAD' && face.state !== 'DYING' && face.state !== 'DEAD') {
                     if (bossState.twoEnemiesStartTime === undefined) bossState.twoEnemiesStartTime = 0;
-                    
+
                     if (enemies.length >= 2) {
                         if (bossState.twoEnemiesStartTime === 0) {
                             bossState.twoEnemiesStartTime = Date.now();
@@ -979,7 +1003,7 @@ document.addEventListener("DOMContentLoaded", () => {
                                 if (faceBlocks.length > 0) {
                                     let cx = 0; faceBlocks.forEach(b => cx += b.baseX); cx /= faceBlocks.length;
                                     let cy = 0; faceBlocks.forEach(b => cy = Math.max(cy, b.baseY));
-                                    
+
                                     let angles = [0, 45, 90, 135, 180, 225, 270, 315];
                                     angles.forEach(deg => {
                                         let rad = deg * Math.PI / 180;
@@ -1175,16 +1199,17 @@ document.addEventListener("DOMContentLoaded", () => {
                         hand.yOffset += 15 * globalSpeedMult;
                         // Drops straight down, no more tracking
 
-                        if (!hand.hit && !paddle.destroyed) {
+                        if (!hand.hit && !paddle.destroyed && Date.now() > (paddle.invincibleEndTime || 0)) {
                             let hBlocks = blocks.filter(b => b.part === handName && b.active);
                             for (let b of hBlocks) {
                                 let br = { x: b.x, y: b.y, w: b.w, h: b.h };
                                 let pr = { x: paddle.x, y: paddle.y, w: paddle.w, h: paddle.h };
                                 if (rectIntersect(br, pr)) {
                                     hand.hit = true;
-                                    paddle.nBuffEndTime = 0;
-                                    if (Date.now() < paddle.ndEndTime) paddle.destroyed = true;
-                                    else if (Date.now() < paddle.foundEndTime) {
+                                    if (Date.now() < paddle.ndEndTime) {
+                                        paddle.destroyed = true;
+                                        spawnPaddleParticles();
+                                    } else if (Date.now() < paddle.foundEndTime) {
                                         paddle.ndEndTime = Date.now() + 5000;
                                         paddle.foundEndTime = Date.now() + 10000;
                                     } else {
@@ -1292,6 +1317,8 @@ document.addEventListener("DOMContentLoaded", () => {
                     gameState = 'GAMEOVER';
                 } else {
                     gameState = 'READY'; // Requires key press to resume
+                    keys.left = false;
+                    keys.right = false;
                 }
             }
         }
@@ -1467,16 +1494,20 @@ document.addEventListener("DOMContentLoaded", () => {
         ctx.font = '28px "Press Start 2P"';
         let pColor = textColor;
         let isPenaltyBlink = Date.now() < paddle.ndEndTime || Date.now() < paddle.foundEndTime;
-        if (isPenaltyBlink && Math.floor(Date.now() / 250) % 2 === 0) {
-            pColor = '#ef4444';
-        } else if (Date.now() < paddle.nBuffEndTime - 1000) {
+        if (Date.now() < paddle.nBuffEndTime - 1000) {
             let blinkColor = currentTheme === 'dark' ? '#38bdf8' : '#0284c7';
             pColor = (Math.floor(Date.now() / 250) % 2 === 0) ? blinkColor : textColor;
+        } else if (isPenaltyBlink && Math.floor(Date.now() / 250) % 2 === 0) {
+            pColor = '#ef4444';
         }
 
         if (!paddle.destroyed) {
+            if (paddle.isSpawning || Date.now() < (paddle.invincibleEndTime || 0)) {
+                ctx.globalAlpha = (Math.floor(Date.now() / 500) % 2 === 0) ? 0.67 : 1.0;
+            }
             ctx.fillStyle = pColor;
             ctx.fillText(paddle.text, paddle.x + paddle.w / 2, paddle.y + paddle.h / 2);
+            ctx.globalAlpha = 1.0;
         }
 
         if (currentStage >= 2) {
@@ -1598,6 +1629,14 @@ document.addEventListener("DOMContentLoaded", () => {
             ctx.font = '18px "Press Start 2P"';
             let text = isMobile ? "← または → を押して開始" : "A D または ← → を押して開始";
             ctx.fillText(text, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 20);
+
+            let maxStage = parseInt(localStorage.getItem('404_max_stage') || '1', 10);
+            if (maxStage > 1) {
+                ctx.fillStyle = '#facc15';
+                ctx.font = '14px "Press Start 2P"';
+                let switchText = isMobile ? "タップでステージ切り替え (STAGE:" + currentStage + ")" : "TAB でステージ切り替え (STAGE:" + currentStage + ")";
+                ctx.fillText(switchText, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 60);
+            }
         }
         else if (gameState === 'READY') {
             ctx.fillStyle = 'rgba(0,0,0,0.4)';
@@ -1689,6 +1728,8 @@ document.addEventListener("DOMContentLoaded", () => {
         if (!gameContainer.classList.contains('hidden')) {
             if (gameState === 'TUTORIAL' || gameState === 'READY') {
                 gameState = 'PLAYING';
+                paddle.isSpawning = false;
+                paddle.invincibleEndTime = Date.now() + 2000;
                 if (balls.length > 0) {
                     balls[0].vx = (Math.random() > 0.5 ? 1 : -1) * 1.25;
                     balls[0].vy = -2;
@@ -1700,17 +1741,38 @@ document.addEventListener("DOMContentLoaded", () => {
     if (mobileLeft) {
         mobileLeft.addEventListener('touchstart', (e) => { e.preventDefault(); keys.left = true; handleMobileInput(); }, { passive: false });
         mobileLeft.addEventListener('touchend', (e) => { e.preventDefault(); keys.left = false; }, { passive: false });
+        mobileLeft.addEventListener('contextmenu', (e) => e.preventDefault());
     }
     if (mobileRight) {
         mobileRight.addEventListener('touchstart', (e) => { e.preventDefault(); keys.right = true; handleMobileInput(); }, { passive: false });
         mobileRight.addEventListener('touchend', (e) => { e.preventDefault(); keys.right = false; }, { passive: false });
+        mobileRight.addEventListener('contextmenu', (e) => e.preventDefault());
     }
+
+    window.addEventListener('beforeunload', (e) => {
+        if (!gameContainer.classList.contains('hidden') && (gameState === 'PLAYING' || gameState === 'READY' || gameState === 'TUTORIAL')) {
+            e.preventDefault();
+            e.returnValue = '';
+        }
+    });
 
     canvas.addEventListener('touchstart', (e) => {
         if (!gameContainer.classList.contains('hidden')) {
             if (gameState === 'GAMEOVER' || gameState === 'GAMECLEAR') {
                 e.preventDefault();
                 resetGame(gameState === 'GAMECLEAR');
+            } else if (gameState === 'TUTORIAL') {
+                let maxStage = parseInt(localStorage.getItem('404_max_stage') || '1', 10);
+                if (maxStage > 1) {
+                    e.preventDefault();
+                    if (e.touches.length >= 2) {
+                        currentStage -= 2;
+                        while (currentStage < 1) currentStage += maxStage;
+                    } else {
+                        currentStage = currentStage >= maxStage ? 1 : currentStage + 1;
+                    }
+                    resetGame(false);
+                }
             }
         }
     }, { passive: false });
@@ -1726,6 +1788,19 @@ document.addEventListener("DOMContentLoaded", () => {
     document.addEventListener('keydown', (e) => {
         if (!gameContainer.classList.contains('hidden')) {
             if (gameState === 'TUTORIAL') {
+                if (e.key === 'Tab') {
+                    e.preventDefault();
+                    let maxStage = parseInt(localStorage.getItem('404_max_stage') || '1', 10);
+                    if (maxStage > 1) {
+                        if (e.shiftKey) {
+                            currentStage = currentStage <= 1 ? maxStage : currentStage - 1;
+                        } else {
+                            currentStage = currentStage >= maxStage ? 1 : currentStage + 1;
+                        }
+                        resetGame(false);
+                    }
+                }
+
                 if (['4', '0'].includes(e.key)) {
                     cheatBuffer.push(e.key);
                     if (cheatBuffer.length > 3) cheatBuffer.shift();
@@ -1744,7 +1819,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
             if (gameState === 'TUTORIAL' || gameState === 'READY') {
                 if (e.key === 'a' || e.key === 'A' || e.key === 'd' || e.key === 'D' || e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+                    if (e.repeat && (gameState === 'READY' || gameState === 'TUTORIAL')) return;
                     gameState = 'PLAYING';
+                    paddle.isSpawning = false;
+                    paddle.invincibleEndTime = Date.now() + 2000;
                     if (balls.length > 0) {
                         balls[0].vx = (Math.random() > 0.5 ? 1 : -1) * 1.25;
                         balls[0].vy = -2;
@@ -1757,8 +1835,14 @@ document.addEventListener("DOMContentLoaded", () => {
                 }
             }
 
-            if (e.key === 'a' || e.key === 'A' || e.key === 'ArrowLeft') keys.left = true;
-            if (e.key === 'd' || e.key === 'D' || e.key === 'ArrowRight') keys.right = true;
+            if (e.key === 'a' || e.key === 'A' || e.key === 'ArrowLeft') {
+                if (e.repeat && gameState === 'READY') return;
+                keys.left = true;
+            }
+            if (e.key === 'd' || e.key === 'D' || e.key === 'ArrowRight') {
+                if (e.repeat && gameState === 'READY') return;
+                keys.right = true;
+            }
         }
     });
 

@@ -259,6 +259,7 @@
 }
 
 .mobile-btn {
+    position: relative;
     width: 80px;
     height: 80px;
     background: var(--card-bg);
@@ -272,9 +273,21 @@
     pointer-events: auto;
     user-select: none;
     -webkit-user-select: none;
+    -webkit-touch-callout: none;
     touch-action: manipulation;
     backdrop-filter: blur(4px);
     -webkit-backdrop-filter: blur(4px);
+    outline: none;
+}
+
+.mobile-btn::after {
+    content: '';
+    position: absolute;
+    top: -20px;
+    left: -20px;
+    right: -20px;
+    bottom: -20px;
+    border-radius: 50%;
 }
 
 .mobile-btn:active {
