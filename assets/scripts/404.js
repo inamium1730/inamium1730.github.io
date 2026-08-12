@@ -368,8 +368,8 @@ document.addEventListener("DOMContentLoaded", () => {
         if (paddle.x + paddle.w > CANVAS_WIDTH) paddle.x = CANVAS_WIDTH - paddle.w;
 
         if (gameState === 'TUTORIAL' || gameState === 'READY') {
-            if (keys.left) paddle.x -= 8;
-            if (keys.right) paddle.x += 8;
+            if (keys.left) paddle.x -= 8 * globalSpeedMult;
+            if (keys.right) paddle.x += 8 * globalSpeedMult;
             if (paddle.x < 0) paddle.x = 0;
             if (paddle.x > CANVAS_WIDTH - paddle.w) paddle.x = CANVAS_WIDTH - paddle.w;
 
@@ -381,8 +381,8 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         if (gameState === 'PLAYING') {
-            if (keys.left) paddle.x -= 8;
-            if (keys.right) paddle.x += 8;
+            if (keys.left) paddle.x -= 8 * globalSpeedMult;
+            if (keys.right) paddle.x += 8 * globalSpeedMult;
             if (paddle.x < 0) paddle.x = 0;
             if (paddle.x > CANVAS_WIDTH - paddle.w) paddle.x = CANVAS_WIDTH - paddle.w;
 
@@ -574,7 +574,7 @@ document.addEventListener("DOMContentLoaded", () => {
             balls = balls.filter(b => b.y < CANVAS_HEIGHT + 50);
 
             items.forEach(item => {
-                item.y += item.vy;
+                item.y += item.vy * globalSpeedMult;
                 let ir = { x: item.x - item.size / 2, y: item.y - item.size / 2, w: item.size, h: item.size };
                 let pr = { x: paddle.x, y: paddle.y, w: paddle.w, h: paddle.h };
                 if (rectIntersect(ir, pr)) {
@@ -639,7 +639,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 }
 
                 enemies.forEach(en => {
-                    en.x += en.vx;
+                    en.x += en.vx * globalSpeedMult;
                     if (en.x - en.w / 2 < 0) {
                         en.x = en.w / 2;
                         en.vx *= -1;
@@ -684,8 +684,8 @@ document.addEventListener("DOMContentLoaded", () => {
                 });
 
                 enemyBullets.forEach(bull => {
-                    bull.x += bull.vx;
-                    bull.y += bull.vy;
+                    bull.x += bull.vx * globalSpeedMult;
+                    bull.y += bull.vy * globalSpeedMult;
                     // Paddle hit
                     if (!paddle.destroyed && bull.y + bull.h > paddle.y && bull.y < paddle.y + paddle.h && bull.x + bull.w > paddle.x && bull.x < paddle.x + paddle.w) {
                         bull.dead = true;
