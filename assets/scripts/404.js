@@ -169,15 +169,15 @@ document.addEventListener("DOMContentLoaded", () => {
     ];
 
     const MAP3 = [
-        "FFFFFFF   OOOOO   UU   UU  NN   NN  DDDDD  ",
-        "FFFFFFF  OOOOOOO  UU   UU  NN   NN  DDDDDD ",
-        "FF       OO   OO  UU   UU  NNN  NN  DD   DD",
-        "FF       OO   OO  UU   UU  NNNN NN  DD   DD",
-        "FFFFFFF  OO   OO  UU   UU  NNNNNNN  DD   DD",
-        "FFFFFFF  OO   OO  UU   UU  NN NNNN  DD   DD",
-        "FF       OO   OO  UU   UU  NN  NNN  DD   DD",
-        "FF       OOOOOOO  UUUUUUU  NN   NN  DDDDDD ",
-        "FF        OOOOO    UUUUU   NN   NN  DDDDD  "
+        "FFFFFFF  OOOOOO  UUU  UUU NNN  NNN DDDDDD  ",
+        "FFFFFFF OOOOOOOO UUU  UUU NNN  NNN DDDDDDD ",
+        "FFFFFFF OOOOOOOO UUU  UUU NNNN NNN DDDDDDDD",
+        "FFF     OOO  OOO UUU  UUU NNNNNNNN DDD  DDD",
+        "FFFFFFF OOO  OOO UUU  UUU NNNNNNNN DDD  DDD",
+        "FFFFFFF OOO  OOO UUU  UUU NNN NNNN DDD  DDD",
+        "FFFFFFF OOOOOOOO UUU  UUU NNN  NNN DDDDDDDD",
+        "FFF     OOOOOOOO UUUUUUUU NNN  NNN DDDDDDD ",
+        "FFF      OOOOOO   UUUUUU  NNN  NNN DDDDDD  "
     ];
 
     const initBlocks = () => {
@@ -513,11 +513,13 @@ document.addEventListener("DOMContentLoaded", () => {
                             }
                             if (en.hp <= 0) {
                                 en.dead = true;
-                                const itemChar = Math.random() < 0.5 ? '4' : '0';
-                                const needed = getNeededHealChar();
-                                let type = 'multiball'; let color = '#facc15';
-                                if (needed === itemChar) { type = 'heal'; color = '#a3e635'; }
-                                items.push({ x: en.x, y: en.y, vy: 1.5, char: itemChar, color: color, type: type, size: 20 });
+                                if (currentStage !== 3 || Math.random() < 0.5) {
+                                    const itemChar = Math.random() < 0.5 ? '4' : '0';
+                                    const needed = getNeededHealChar();
+                                    let type = 'multiball'; let color = '#facc15';
+                                    if (needed === itemChar) { type = 'heal'; color = '#a3e635'; }
+                                    items.push({ x: en.x, y: en.y, vy: 1.5, char: itemChar, color: color, type: type, size: 20 });
+                                }
                             }
                         }
                     });
