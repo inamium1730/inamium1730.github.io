@@ -957,8 +957,24 @@ document.addEventListener("DOMContentLoaded", () => {
     };
 
     let gameLoopId = null;
-    const loop = () => {
-        update();
+    let lastTime = 0;
+    let accumulator = 0;
+    const TIME_STEP = 1000 / 60;
+
+    const loop = (timestamp) => {
+        if (!lastTime) lastTime = timestamp;
+        let dt = timestamp - lastTime;
+        lastTime = timestamp;
+
+        // タブ切り替え時などに巨大なdtにならないよう制限
+        if (dt > 100) dt = 100;
+
+        accumulator += dt;
+        while (accumulator >= TIME_STEP) {
+            update();
+            accumulator -= TIME_STEP;
+        }
+
         draw();
         gameLoopId = requestAnimationFrame(loop);
     };
