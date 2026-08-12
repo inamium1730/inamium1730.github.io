@@ -973,8 +973,8 @@ document.addEventListener("DOMContentLoaded", () => {
                             bossState.twoEnemiesStartTime = Date.now();
                         } else {
                             let elapsed = Date.now() - bossState.twoEnemiesStartTime;
-                            if (elapsed > 45000) {
-                                bossState.twoEnemiesStartTime = Date.now() - 15000;
+                            if (elapsed > 30000) {
+                                bossState.twoEnemiesStartTime = Date.now();
                                 let faceBlocks = blocks.filter(b => b.part === 'face' && b.active);
                                 if (faceBlocks.length > 0) {
                                     let cx = 0; faceBlocks.forEach(b => cx += b.baseX); cx /= faceBlocks.length;
@@ -1002,7 +1002,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     } else {
                         if (bossState.twoEnemiesStartTime !== 0) {
                             bossState.twoEnemiesStartTime = 0;
-                            face.timer = Math.max(face.timer, Date.now() + 10000);
+                            face.timer = Math.max(face.timer, Date.now() + 5000);
                         }
                     }
                 }
