@@ -111,6 +111,7 @@
     text-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
     user-select: none;
     -webkit-user-select: none;
+    touch-action: manipulation;
 }
 
 .error-divider {
