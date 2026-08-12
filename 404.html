@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>404 Not Found | @inamium1730</title>
+    <!-- OGP & SEO Meta Tags -->
+    <meta name="description" content="ページが見つかりません。">
+    <meta property="og:title" content="404 Not Found">
+    <meta property="og:description" content="ページが見つかりません。">
+    <meta property="og:type" content="website">
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="404 Not Found">
+    <meta name="twitter:description" content="ページが見つかりません。">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="assets/styles/style.css">
+    <link rel="stylesheet" href="assets/styles/404.css">
+</head>
+
+<body>
+    <!-- Theme Toggle Button -->
+    <button id="theme-toggle" class="theme-toggle-btn" aria-label="Toggle Theme">
+        <span class="svg-icon theme-svg-icon" id="theme-icon"></span>
+    </button>
+
+    <!-- Animated Background -->
+    <div class="bg-shapes">
+        <div class="shape shape-1"></div>
+        <div class="shape shape-2"></div>
+        <div class="shape shape-3"></div>
+    </div>
+
+    <!-- Error Card -->
+    <main class="error-card">
+        <div class="error-content">
+            <h1 class="error-code">404</h1>
+            <h2 class="error-title">Page Not Found</h2>
+            <p class="error-description">
+                There is nothing here.
+            </p>
+        </div>
+    </main>
+
+    <!-- Game Overlay -->
+    <div id="game-container" class="game-container hidden">
+        <canvas id="game-canvas"></canvas>
+        <div id="mobile-controls" class="mobile-controls hidden">
+            <button id="btn-left" class="mobile-btn">←</button>
+            <button id="btn-right" class="mobile-btn">→</button>
+        </div>
+        <button id="mute-btn" class="mute-btn" aria-label="Toggle Mute">
+            <svg id="icon-unmute" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path><path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path></svg>
+            <svg id="icon-mute" class="hidden" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><line x1="23" y1="9" x2="17" y2="15"></line><line x1="17" y1="9" x2="23" y2="15"></line></svg>
+        </button>
+    </div>
+
+    <script src="assets/scripts/404.js"></script>
+</body>
+
+</html>

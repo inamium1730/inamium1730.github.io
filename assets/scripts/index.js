@@ -24,14 +24,25 @@ document.addEventListener("DOMContentLoaded", async () => {
     const avatarContainer = document.querySelector('.avatar-container');
     
     if (avatarContainer && avatar) {
-        const triggerJelly = () => {
+        let isTouch = false;
+        const triggerJelly = (e) => {
+            if (e && e.type !== 'touchstart' && isTouch) return;
+            if (e && e.type === 'touchstart') {
+                isTouch = true;
+                setTimeout(() => { isTouch = false; }, 500);
+            }
             avatar.classList.remove('jelly-anim');
             void avatar.offsetWidth; // trigger reflow
             avatar.classList.add('jelly-anim');
         };
 
-        avatarContainer.addEventListener('click', triggerJelly);
         avatarContainer.addEventListener('touchstart', triggerJelly, {passive: true});
+        avatarContainer.addEventListener('mouseenter', triggerJelly);
+        avatarContainer.addEventListener('click', triggerJelly);
+
+        avatar.addEventListener('animationend', () => {
+            avatar.classList.remove('jelly-anim');
+        });
     }
 
     const username = 'inamium1730';

@@ -125,7 +125,6 @@
     }
 }
 
-.avatar-container:hover .avatar,
 .avatar.jelly-anim {
     animation: jelly 0.6s ease-in-out;
 }
