@@ -718,7 +718,8 @@ document.addEventListener("DOMContentLoaded", () => {
                             }
                             if (en.hp <= 0) {
                                 en.dead = true;
-                                let maxEnemies = currentStage === 5 ? 2 : (currentStage === 4 ? 6 : (currentStage === 3 ? 4 : 2));
+                                let isPhase3 = currentStage === 5 && typeof bossState !== 'undefined' && bossState.active && bossState.leftHand.state === 'DEAD' && bossState.rightHand.state === 'DEAD';
+                                let maxEnemies = currentStage === 5 ? (isPhase3 ? 4 : 2) : (currentStage === 4 ? 6 : (currentStage === 3 ? 4 : 2));
                                 if (Math.random() < 2 / maxEnemies) {
                                     const itemChar = Math.random() < 0.5 ? '4' : '0';
                                     const needed = getNeededHealChar();
@@ -993,9 +994,13 @@ document.addEventListener("DOMContentLoaded", () => {
                 if (bossState.leftHand.state === 'DEAD' && bossState.rightHand.state === 'DEAD' && face.state !== 'DYING' && face.state !== 'DEAD') {
                     if (bossState.twoEnemiesStartTime === undefined) bossState.twoEnemiesStartTime = 0;
 
-                    if (enemies.length >= 2) {
-                        if (bossState.twoEnemiesStartTime === 0) {
+                    if (bossState.twoEnemiesStartTime === 0) {
+                        if (enemies.length >= 4) {
                             bossState.twoEnemiesStartTime = Date.now();
+                        }
+                    } else {
+                        if (enemies.length === 0) {
+                            bossState.twoEnemiesStartTime = 0;
                         } else {
                             let elapsed = Date.now() - bossState.twoEnemiesStartTime;
                             if (elapsed > 30000) {
@@ -1023,11 +1028,6 @@ document.addEventListener("DOMContentLoaded", () => {
                                     playBeep(400);
                                 }
                             }
-                        }
-                    } else {
-                        if (bossState.twoEnemiesStartTime !== 0) {
-                            bossState.twoEnemiesStartTime = 0;
-                            face.timer = Math.max(face.timer, Date.now() + 5000);
                         }
                     }
                 }
@@ -1087,7 +1087,9 @@ document.addEventListener("DOMContentLoaded", () => {
                         let handsIdle = (bossState.leftHand.hp <= 0 || bossState.leftHand.state === 'IDLE') &&
                             (bossState.rightHand.hp <= 0 || bossState.rightHand.state === 'IDLE');
                         if (Date.now() > face.timer && Date.now() > bossState.stunUntil && handsIdle) {
-                            if (enemies.length < 2) {
+                            let isPhase3 = bossState.leftHand.state === 'DEAD' && bossState.rightHand.state === 'DEAD';
+                            let limit = isPhase3 ? 4 : 2;
+                            if (enemies.length < limit) {
                                 face.state = 'TELEGRAPH';
                                 face.timer = Date.now() + 1500;
                             } else {
