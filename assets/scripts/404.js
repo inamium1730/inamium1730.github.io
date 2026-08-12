@@ -116,9 +116,10 @@ document.addEventListener("DOMContentLoaded", () => {
     let enemies = [];
     let enemyBullets = [];
     let lastEnemySpawnTime = 0;
+    let enemySpawnCount = 0;
     let stars = [];
     for (let i = 0; i < 50; i++) stars.push({ x: Math.random() * CANVAS_WIDTH, y: Math.random() * (CANVAS_HEIGHT / 2), phase: Math.random() * Math.PI * 2 });
-    
+
     let clouds = [];
     for (let i = 0; i < 5; i++) {
         clouds.push({
@@ -134,6 +135,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
     let paddle = { x: CANVAS_WIDTH / 2 - 130, y: CANVAS_HEIGHT - 60, w: 260, h: 30, text: 'NOTFOUND', nBuffEndTime: 0, foundEndTime: 0, ndEndTime: 0, destroyed: false };
     let keys = { left: false, right: false };
+
+    const rectIntersect = (r1, r2) => {
+        return !(r2.x > r1.x + r1.w ||
+            r2.x + r2.w < r1.x ||
+            r2.y > r1.y + r1.h ||
+            r2.y + r2.h < r1.y);
+    };
 
     const MAP1 = [
         "444      444   000000000000   444      444",
@@ -160,15 +168,31 @@ document.addEventListener("DOMContentLoaded", () => {
         "NNN      NNN    OOOOOOOOOO        TTTT    "
     ];
 
+    const MAP3 = [
+        "FFFFFFF   OOOOO   UU   UU  NN   NN  DDDDD  ",
+        "FFFFFFF  OOOOOOO  UU   UU  NN   NN  DDDDDD ",
+        "FF       OO   OO  UU   UU  NNN  NN  DD   DD",
+        "FF       OO   OO  UU   UU  NNNN NN  DD   DD",
+        "FFFFFFF  OO   OO  UU   UU  NNNNNNN  DD   DD",
+        "FFFFFFF  OO   OO  UU   UU  NN NNNN  DD   DD",
+        "FF       OO   OO  UU   UU  NN  NNN  DD   DD",
+        "FF       OOOOOOO  UUUUUUU  NN   NN  DDDDDD ",
+        "FF        OOOOO    UUUUU   NN   NN  DDDDD  "
+    ];
+
     const initBlocks = () => {
         blocks = [];
         const blockW = 18;
         const blockH = 24;
-        const startX = (CANVAS_WIDTH - ((currentStage === 1 ? MAP1 : MAP2)[0].length * blockW)) / 2;
+        let selectedMap = MAP1;
+        if (currentStage === 2) selectedMap = MAP2;
+        if (currentStage === 3) selectedMap = MAP3;
+
+        const startX = (CANVAS_WIDTH - (selectedMap[0].length * blockW)) / 2;
         const startY = 100;
-        for (let r = 0; r < (currentStage === 1 ? MAP1 : MAP2).length; r++) {
-            for (let c = 0; c < (currentStage === 1 ? MAP1 : MAP2)[r].length; c++) {
-                const char = (currentStage === 1 ? MAP1 : MAP2)[r][c];
+        for (let r = 0; r < selectedMap.length; r++) {
+            for (let c = 0; c < selectedMap[r].length; c++) {
+                const char = selectedMap[r][c];
                 if (char !== ' ') {
                     blocks.push({
                         x: startX + c * blockW,
@@ -232,7 +256,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const resetGame = (advanceStage = false) => {
         if (advanceStage) {
-            currentStage = currentStage === 1 ? 2 : 1;
+            currentStage = currentStage >= 3 ? 1 : currentStage + 1;
         }
         score = 0;
         reserve = ['4', '0', '4'];
@@ -240,6 +264,7 @@ document.addEventListener("DOMContentLoaded", () => {
         enemies = [];
         enemyBullets = [];
         lastEnemySpawnTime = Date.now();
+        enemySpawnCount = 0;
         paddle.foundEndTime = 0;
         paddle.ndEndTime = 0;
         paddle.destroyed = false;
@@ -264,12 +289,7 @@ document.addEventListener("DOMContentLoaded", () => {
         return null;
     };
 
-    const rectIntersect = (r1, r2) => {
-        return !(r2.x > r1.x + r1.w ||
-            r2.x + r2.w < r1.x ||
-            r2.y > r1.y + r1.h ||
-            r2.y + r2.h < r1.y);
-    };
+
 
     const getAutoAimVelocity = (startX, startY, normalVx, normalVy, currentBaseSpeed) => {
         const activeBlocks = blocks.filter(bl => bl.active);
@@ -480,7 +500,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
                 let bBox = { x: b.x - b.size / 2, y: b.y - b.size, w: b.size, h: b.size };
 
-                if (currentStage === 2) {
+                if (currentStage >= 2) {
                     // Enemy collision
                     enemies.forEach(en => {
                         if (!en.dead && Date.now() - en.lastHitTime > 200 && rectIntersect(bBox, { x: en.x - en.w / 2, y: en.y - en.h / 2, w: en.w, h: en.h })) {
@@ -587,15 +607,21 @@ document.addEventListener("DOMContentLoaded", () => {
 
             items = items.filter(i => !i.caught && i.y < CANVAS_HEIGHT + 50);
 
-            if (currentStage === 2) {
-                if (Date.now() - lastEnemySpawnTime > 15000 && enemies.length < 3) {
+            if (currentStage >= 2) {
+                let spawnInterval = currentStage === 3 ? 8000 : 16000;
+                let maxEnemies = currentStage === 3 ? 6 : 3;
+
+                if (Date.now() - lastEnemySpawnTime > spawnInterval && enemies.length < maxEnemies) {
+                    enemySpawnCount++;
+                    let isFound = currentStage === 3 && (enemySpawnCount % 3 === 0);
                     enemies.push({
-                        x: Math.random() * (CANVAS_WIDTH - 120) + 60,
+                        x: Math.random() * (CANVAS_WIDTH - (isFound ? 180 : 120)) + (isFound ? 90 : 60),
                         y: 50,
-                        w: 96,
+                        w: isFound ? 160 : 96,
                         h: 32,
                         vx: Math.random() < 0.5 ? 0.5 : -0.5,
-                        hp: 3,
+                        hp: isFound ? 5 : 3,
+                        type: isFound ? 'FOUND' : 'NOT',
                         lastShootTime: Date.now(),
                         lastHitTime: 0
                     });
@@ -613,18 +639,42 @@ document.addEventListener("DOMContentLoaded", () => {
                         en.vx *= -1;
                         en.y += 20;
                     }
-                    if (Date.now() - en.lastShootTime > 3000 + Math.random() * 2000) {
-                        enemyBullets.push({
-                            x: en.x,
-                            y: en.y + 20,
-                            w: 16, h: 48,
-                            vy: 4
-                        });
+
+                    let shootInterval = en.type === 'FOUND' ? 5000 + Math.random() * 2000 : 3000 + Math.random() * 2000;
+                    if (Date.now() - en.lastShootTime > shootInterval) {
+                        if (en.type === 'FOUND') {
+                            let targetX = paddle.x + paddle.w / 2;
+                            let targetY = paddle.y + paddle.h / 2;
+                            let dx = targetX - en.x;
+                            let dy = targetY - (en.y + 20);
+                            let dist = Math.sqrt(dx * dx + dy * dy);
+                            let speed = 4;
+                            enemyBullets.push({
+                                x: en.x,
+                                y: en.y + 20,
+                                w: 16, h: 48,
+                                vx: (dx / dist) * speed,
+                                vy: (dy / dist) * speed,
+                                type: 'FOUND',
+                                dead: false
+                            });
+                        } else {
+                            enemyBullets.push({
+                                x: en.x,
+                                y: en.y + 20,
+                                w: 16, h: 48,
+                                vx: 0,
+                                vy: 4,
+                                type: 'NOT',
+                                dead: false
+                            });
+                        }
                         en.lastShootTime = Date.now();
                     }
                 });
 
                 enemyBullets.forEach(bull => {
+                    bull.x += bull.vx;
                     bull.y += bull.vy;
                     // Paddle hit
                     if (!paddle.destroyed && bull.y + bull.h > paddle.y && bull.y < paddle.y + paddle.h && bull.x + bull.w > paddle.x && bull.x < paddle.x + paddle.w) {
@@ -661,7 +711,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const draw = () => {
         ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
-        if (currentStage === 2) {
+        if (currentStage >= 2) {
             if (currentTheme === 'dark') {
                 stars.forEach(s => {
                     s.phase += 0.03;
@@ -673,12 +723,12 @@ document.addEventListener("DOMContentLoaded", () => {
                 });
             } else {
                 const cloudSprites = [
-                    [ "  1111  ", " 111111 ", "11111111" ],
-                    [ "   111   ", "  11111  ", " 1111111 ", "111111111" ],
-                    [ "  11  11  ", " 11111111 ", "1111111111" ]
+                    ["  1111  ", " 111111 ", "11111111"],
+                    ["   111   ", "  11111  ", " 1111111 ", "111111111"],
+                    ["  11  11  ", " 11111111 ", "1111111111"]
                 ];
-                const birdSprite1 = [ "10001", "01010", "00100" ];
-                const birdSprite2 = [ "00000", "11011", "00100" ];
+                const birdSprite1 = ["10001", "01010", "00100"];
+                const birdSprite2 = ["00000", "11011", "00100"];
 
                 clouds.forEach(c => {
                     c.x -= c.speed;
@@ -689,7 +739,7 @@ document.addEventListener("DOMContentLoaded", () => {
                         c.cloudId = Math.floor(Math.random() * 3);
                         c.speed = 0.25 + Math.random() * 0.25;
                     }
-                    
+
                     let sprite;
                     if (c.type === 'bird') {
                         sprite = Math.floor(Date.now() / 400) % 2 === 0 ? birdSprite1 : birdSprite2;
@@ -698,7 +748,7 @@ document.addEventListener("DOMContentLoaded", () => {
                         sprite = cloudSprites[c.cloudId];
                         ctx.fillStyle = 'rgba(200, 200, 200, 0.4)';
                     }
-                    
+
                     const dotSize = 5;
                     for (let r = 0; r < sprite.length; r++) {
                         for (let col = 0; col < sprite[r].length; col++) {
@@ -708,6 +758,31 @@ document.addEventListener("DOMContentLoaded", () => {
                         }
                     }
                 });
+            }
+        }
+
+        if (currentStage === 3) {
+            ctx.fillStyle = currentTheme === 'dark' ? '#222' : '#e5e7eb';
+            const points = [
+                { x: 0, y: CANVAS_HEIGHT },
+                { x: 200, y: CANVAS_HEIGHT - 200 },
+                { x: 400, y: CANVAS_HEIGHT - 100 },
+                { x: 600, y: CANVAS_HEIGHT - 300 },
+                { x: 800, y: CANVAS_HEIGHT - 50 },
+                { x: 1024, y: CANVAS_HEIGHT - 250 }
+            ];
+            const dotSize = 8;
+            for (let x = 0; x < CANVAS_WIDTH; x += dotSize) {
+                let p1 = points[0], p2 = points[1];
+                for (let i = 0; i < points.length - 1; i++) {
+                    if (x >= points[i].x && x <= points[i + 1].x) {
+                        p1 = points[i]; p2 = points[i + 1]; break;
+                    }
+                }
+                let t = (p2.x === p1.x) ? 0 : (x - p1.x) / (p2.x - p1.x);
+                let y = p1.y + t * (p2.y - p1.y);
+                let qY = Math.floor(y / dotSize) * dotSize;
+                ctx.fillRect(x, qY, dotSize, CANVAS_HEIGHT - qY);
             }
         }
 
@@ -756,32 +831,44 @@ document.addEventListener("DOMContentLoaded", () => {
             ctx.fillText(paddle.text, paddle.x + paddle.w / 2, paddle.y + paddle.h / 2);
         }
 
-        if (currentStage === 2) {
+        if (currentStage >= 2) {
             ctx.textAlign = 'center';
             ctx.font = '32px "Press Start 2P"';
             enemies.forEach(en => {
-                let chars = ['N', 'O', 'T'];
-                let offsets = [-32, 0, 32];
                 ctx.fillStyle = textColor;
-                chars.forEach((c, idx) => {
-                    if (en.hp === 3) ctx.globalAlpha = 1.0;
-                    else if (en.hp === 2) ctx.globalAlpha = idx < 2 ? 1.0 : 0.3; 
-                    else ctx.globalAlpha = idx === 0 ? 1.0 : 0.3; 
-                    
-                    ctx.fillText(c, en.x + offsets[idx], en.y + en.h / 2);
-                });
+                if (en.type === 'FOUND') {
+                    let chars = ['F', 'O', 'U', 'N', 'D'];
+                    let offsets = [-64, -32, 0, 32, 64];
+                    chars.forEach((c, idx) => {
+                        if (en.hp === 5) ctx.globalAlpha = 1.0;
+                        else if (en.hp === 4) ctx.globalAlpha = idx < 4 ? 1.0 : 0.3;
+                        else if (en.hp === 3) ctx.globalAlpha = idx < 3 ? 1.0 : 0.3;
+                        else if (en.hp === 2) ctx.globalAlpha = idx < 2 ? 1.0 : 0.3;
+                        else ctx.globalAlpha = idx === 0 ? 1.0 : 0.3;
+                        ctx.fillText(c, en.x + offsets[idx], en.y + en.h / 2);
+                    });
+                } else {
+                    let chars = ['N', 'O', 'T'];
+                    let offsets = [-32, 0, 32];
+                    chars.forEach((c, idx) => {
+                        if (en.hp === 3) ctx.globalAlpha = 1.0;
+                        else if (en.hp === 2) ctx.globalAlpha = idx < 2 ? 1.0 : 0.3;
+                        else ctx.globalAlpha = idx === 0 ? 1.0 : 0.3;
+                        ctx.fillText(c, en.x + offsets[idx], en.y + en.h / 2);
+                    });
+                }
             });
             ctx.globalAlpha = 1.0;
 
             enemyBullets.forEach(bull => {
                 ctx.save();
                 ctx.translate(bull.x + bull.w / 2, bull.y + bull.h / 2);
-                ctx.rotate(Math.PI / 2);
+                let angle = bull.vx !== 0 ? Math.atan2(bull.vy, bull.vx) : Math.PI / 2;
+                ctx.rotate(angle);
                 ctx.fillStyle = (Math.floor(Date.now() / 250) % 2 === 0) ? '#ef4444' : textColor;
                 ctx.font = '16px "Press Start 2P"';
                 ctx.textAlign = 'center';
-                ctx.fillText("404", 0, 0);
-                ctx.restore();
+                ctx.fillText(bull.type === 'FOUND' ? "FOUND" : "404", 0, 0); ctx.restore();
             });
         }
 
@@ -936,7 +1023,6 @@ document.addEventListener("DOMContentLoaded", () => {
                     if (cheatBuffer.length > 3) cheatBuffer.shift();
                     if (cheatBuffer.join('') === '404') {
                         resetGame(true);
-                        gameState = 'READY';
                         cheatBuffer = [];
                     }
                 } else {
