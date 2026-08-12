@@ -261,10 +261,10 @@
 .mobile-btn {
     width: 80px;
     height: 80px;
-    background: rgba(255, 255, 255, 0.2);
-    border: 2px solid rgba(255, 255, 255, 0.5);
+    background: var(--card-bg);
+    border: 2px solid var(--text-muted);
     border-radius: 50%;
-    color: white;
+    color: var(--text-main);
     font-size: 32px;
     display: flex;
     justify-content: center;
@@ -273,8 +273,11 @@
     user-select: none;
     -webkit-user-select: none;
     touch-action: manipulation;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
 }
 
 .mobile-btn:active {
-    background: rgba(255, 255, 255, 0.4);
+    background: var(--text-muted);
+    color: var(--bg-color);
 }
