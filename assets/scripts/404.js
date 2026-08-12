@@ -842,7 +842,7 @@ document.addEventListener("DOMContentLoaded", () => {
                         en.y += 20;
                     }
 
-                    let shootInterval = en.type === 'DROP' ? 4000 + Math.random() * 2000 : (en.type === 'FOUND' ? 5000 + Math.random() * 2000 : 3000 + Math.random() * 2000);
+                    let shootInterval = en.type === 'DROP' ? 8000 + Math.random() * 4000 : (en.type === 'FOUND' ? 5000 + Math.random() * 2000 : 3000 + Math.random() * 2000);
                     if (Date.now() - en.lastShootTime > shootInterval) {
                         if (en.type === 'DROP') {
                             enemyBullets.push({
@@ -912,6 +912,30 @@ document.addEventListener("DOMContentLoaded", () => {
                         });
                         return; // Skip paddle hit check for this exploded bullet
                     }
+                    
+                    if (bull.type === '404NOTFOUND_BASE') {
+                        let dx = bull.x - bull.startX;
+                        let dy = bull.y - bull.startY;
+                        let distSq = dx * dx + dy * dy;
+                        if (distSq >= 200 * 200) {
+                            bull.dead = true;
+                            let angles = [0, 45, 90, 135, 180, 225, 270, 315];
+                            let outText = Math.random() < 0.5 ? '404' : 'NOT';
+                            angles.forEach(deg => {
+                                let rad = deg * Math.PI / 180;
+                                enemyBullets.push({
+                                    x: bull.x,
+                                    y: bull.y,
+                                    w: 16, h: 16,
+                                    vx: Math.cos(rad) * 4,
+                                    vy: Math.sin(rad) * 4,
+                                    type: '404NOTFOUND_SHRAPNEL',
+                                    char: outText,
+                                    dead: false
+                                });
+                            });
+                        }
+                    }
 
                     if (bull.type === '404_ARC') {
                         bull.vy += 0.2 * globalSpeedMult; // Gravity effect
@@ -940,6 +964,70 @@ document.addEventListener("DOMContentLoaded", () => {
 
             if (currentStage === 5 && bossState.active) {
                 let face = bossState.face;
+                
+                if (bossState.leftHand.state === 'DEAD' && bossState.rightHand.state === 'DEAD' && face.state !== 'DYING' && face.state !== 'DEAD') {
+                    if (bossState.twoEnemiesStartTime === undefined) bossState.twoEnemiesStartTime = 0;
+                    
+                    if (enemies.length >= 2) {
+                        if (bossState.twoEnemiesStartTime === 0) {
+                            bossState.twoEnemiesStartTime = Date.now();
+                        } else {
+                            let elapsed = Date.now() - bossState.twoEnemiesStartTime;
+                            if (elapsed > 45000) {
+                                bossState.twoEnemiesStartTime = Date.now() - 15000;
+                                let faceBlocks = blocks.filter(b => b.part === 'face' && b.active);
+                                if (faceBlocks.length > 0) {
+                                    let cx = 0; faceBlocks.forEach(b => cx += b.baseX); cx /= faceBlocks.length;
+                                    let cy = 0; faceBlocks.forEach(b => cy = Math.max(cy, b.baseY));
+                                    
+                                    let angles = [0, 45, 90, 135, 180, 225, 270, 315];
+                                    angles.forEach(deg => {
+                                        let rad = deg * Math.PI / 180;
+                                        enemyBullets.push({
+                                            x: cx,
+                                            y: cy,
+                                            startX: cx,
+                                            startY: cy,
+                                            w: 16, h: 16,
+                                            vx: Math.cos(rad) * 3,
+                                            vy: Math.sin(rad) * 3,
+                                            type: '404NOTFOUND_BASE',
+                                            dead: false
+                                        });
+                                    });
+                                    playBeep(400);
+                                }
+                            }
+                        }
+                    } else {
+                        if (bossState.twoEnemiesStartTime !== 0) {
+                            bossState.twoEnemiesStartTime = 0;
+                            face.timer = Math.max(face.timer, Date.now() + 10000);
+                        }
+                    }
+                }
+
+                if (face.state !== 'DYING' && face.state !== 'DEAD') {
+                    let elapsed = (bossState.twoEnemiesStartTime && bossState.twoEnemiesStartTime > 0) ? Date.now() - bossState.twoEnemiesStartTime : 0;
+                    if (elapsed > 15000) {
+                        if (face.state === 'IDLE') {
+                            face.xOffset = (Math.random() - 0.5) * 4;
+                            face.yOffset = (Math.random() - 0.5) * 4;
+                        } else if (face.state === 'TELEGRAPH') {
+                            face.xOffset = (Math.random() - 0.5) * 4;
+                            face.yOffset = Math.sin(Date.now() / 50) * 10 + (Math.random() - 0.5) * 4;
+                        }
+                    } else {
+                        if (face.state === 'IDLE') {
+                            face.xOffset = 0;
+                            face.yOffset = 0;
+                        } else if (face.state === 'TELEGRAPH') {
+                            face.xOffset = 0;
+                            face.yOffset = Math.sin(Date.now() / 50) * 10;
+                        }
+                    }
+                }
+
                 if (face.state === 'DYING') {
                     face.xOffset = (Math.random() - 0.5) * 8;
                     face.yOffset = (Math.random() - 0.5) * 8;
@@ -984,7 +1072,6 @@ document.addEventListener("DOMContentLoaded", () => {
                     } else if (face.state === 'TELEGRAPH') {
                         face.yOffset = Math.sin(Date.now() / 50) * 10;
                         if (Date.now() > face.timer) {
-                            face.yOffset = 0;
                             face.state = 'SUMMON';
 
                             let faceBlocks = blocks.filter(b => b.part === 'face' && b.active);
@@ -1447,12 +1534,16 @@ document.addEventListener("DOMContentLoaded", () => {
                 let bText = "404";
                 if (bull.type === 'FOUND') bText = "FOUND";
                 else if (bull.type === 'DROP_BULLET' || bull.type === 'SCATTERED_BULLET') bText = "DROP";
+                else if (bull.type === '404NOTFOUND_BASE') bText = "404NOTFOUND";
+                else if (bull.type === '404NOTFOUND_SHRAPNEL') bText = bull.char;
 
                 let bColor = textColor;
                 if (bull.type === 'DROP_BULLET') {
                     bColor = (Math.floor(Date.now() / 100) % 2 === 0) ? '#f97316' : textColor; // orange blink
                 } else if (bull.type === 'SCATTERED_BULLET') {
                     bColor = (Math.floor(Date.now() / 100) % 2 === 0) ? '#ef4444' : textColor; // red blink
+                } else if (bull.type === '404NOTFOUND_BASE' || bull.type === '404NOTFOUND_SHRAPNEL') {
+                    bColor = (Math.floor(Date.now() / 100) % 2 === 0) ? '#a855f7' : textColor; // purple blink
                 } else {
                     bColor = (Math.floor(Date.now() / 250) % 2 === 0) ? '#ef4444' : textColor; // slow red blink
                 }
