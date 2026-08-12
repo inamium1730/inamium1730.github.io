@@ -182,6 +182,7 @@
     left: 0;
     width: 100vw;
     height: 100vh;
+    height: 100dvh;
     background: var(--bg-color);
     z-index: 1000;
     display: flex;
@@ -203,6 +204,7 @@
     width: 100%;
     height: 100%;
     max-width: calc(100vh * 4/3);
+    max-width: calc(100dvh * 4/3);
     max-height: calc(100vw * 3/4);
     border-radius: 12px;
 }

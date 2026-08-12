@@ -982,6 +982,13 @@ document.addEventListener("DOMContentLoaded", () => {
     const startGame = () => {
         gameContainer.classList.remove('hidden');
         document.body.style.overflow = 'hidden';
+        
+        // Hide background shapes and error card to improve Safari rendering performance
+        const bgShapes = document.querySelector('.bg-shapes');
+        const errorCard = document.querySelector('.error-card');
+        if (bgShapes) bgShapes.style.display = 'none';
+        if (errorCard) errorCard.style.display = 'none';
+
         if (isMobile) {
             document.getElementById('mobile-controls').classList.remove('hidden');
         }
