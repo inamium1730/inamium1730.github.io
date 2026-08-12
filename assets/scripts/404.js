@@ -608,10 +608,18 @@ document.addEventListener("DOMContentLoaded", () => {
                         let minOverlap = Math.min(overlapLeft, overlapRight, overlapTop, overlapBottom);
 
                         if (!(b.isEnhanced && Date.now() < paddle.nBuffEndTime) || isInvincible) {
-                            if (minOverlap === overlapLeft || minOverlap === overlapRight) {
-                                b.vx *= -1;
-                            } else {
-                                b.vy *= -1;
+                            if (minOverlap === overlapLeft) {
+                                b.x -= overlapLeft;
+                                b.vx = -Math.abs(b.vx);
+                            } else if (minOverlap === overlapRight) {
+                                b.x += overlapRight;
+                                b.vx = Math.abs(b.vx);
+                            } else if (minOverlap === overlapTop) {
+                                b.y -= overlapTop;
+                                b.vy = -Math.abs(b.vy);
+                            } else if (minOverlap === overlapBottom) {
+                                b.y += overlapBottom;
+                                b.vy = Math.abs(b.vy);
                             }
                         }
 
