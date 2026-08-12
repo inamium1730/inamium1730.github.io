@@ -118,7 +118,17 @@ document.addEventListener("DOMContentLoaded", () => {
     let lastEnemySpawnTime = 0;
     let stars = [];
     for (let i = 0; i < 50; i++) stars.push({ x: Math.random() * CANVAS_WIDTH, y: Math.random() * (CANVAS_HEIGHT / 2), phase: Math.random() * Math.PI * 2 });
-    let cloudOffset = 0;
+    
+    let clouds = [];
+    for (let i = 0; i < 5; i++) {
+        clouds.push({
+            x: Math.random() * CANVAS_WIDTH,
+            y: 50 + Math.random() * 150,
+            type: Math.random() < 0.25 ? 'bird' : 'cloud',
+            cloudId: Math.floor(Math.random() * 3),
+            speed: 0.25 + Math.random() * 0.25
+        });
+    }
 
     let cheatBuffer = [];
 
@@ -312,20 +322,29 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const update = () => {
         // Update paddle state based on penalties
+        let newW = 260;
+        let newText = 'NOTFOUND';
+
         if (paddle.destroyed) {
-            paddle.text = '';
-            paddle.w = 0;
+            newW = 0;
+            newText = '';
         } else if (Date.now() < paddle.ndEndTime) {
-            paddle.text = 'ND';
-            paddle.w = 64;
+            newW = 64;
+            newText = 'ND';
         } else if (Date.now() < paddle.foundEndTime) {
-            paddle.text = 'FOUND';
-            paddle.w = 160;
-        } else {
-            paddle.text = 'NOTFOUND';
-            paddle.w = 260;
+            newW = 160;
+            newText = 'FOUND';
         }
+
+        if (paddle.w !== newW) {
+            let center = paddle.x + paddle.w / 2;
+            paddle.x = center - newW / 2;
+            paddle.w = newW;
+            paddle.text = newText;
+        }
+
         // Ensure paddle doesn't go out of bounds after resize
+        if (paddle.x < 0) paddle.x = 0;
         if (paddle.x + paddle.w > CANVAS_WIDTH) paddle.x = CANVAS_WIDTH - paddle.w;
 
         if (gameState === 'TUTORIAL' || gameState === 'READY') {
@@ -464,12 +483,13 @@ document.addEventListener("DOMContentLoaded", () => {
                 if (currentStage === 2) {
                     // Enemy collision
                     enemies.forEach(en => {
-                        if (!en.dead && rectIntersect(bBox, { x: en.x - en.w / 2, y: en.y - en.h / 2, w: en.w, h: en.h })) {
+                        if (!en.dead && Date.now() - en.lastHitTime > 200 && rectIntersect(bBox, { x: en.x - en.w / 2, y: en.y - en.h / 2, w: en.w, h: en.h })) {
                             if (b.isEnhanced && Date.now() < paddle.nBuffEndTime) {
                                 en.hp = 0;
                             } else {
                                 en.hp--;
                                 b.vy *= -1;
+                                en.lastHitTime = Date.now();
                             }
                             if (en.hp <= 0) {
                                 en.dead = true;
@@ -535,6 +555,9 @@ document.addEventListener("DOMContentLoaded", () => {
                         }
                     } else if (item.type === 'nbuff') {
                         paddle.nBuffEndTime = Date.now() + 11000;
+                        paddle.foundEndTime = 0; // Cancel debuffs if active
+                        paddle.ndEndTime = 0;
+                        paddle.destroyed = false;
                     } else {
                         let isEnhanced = false;
                         let vx = (Math.random() > 0.5 ? 1 : -1) * 1.25;
@@ -573,7 +596,8 @@ document.addEventListener("DOMContentLoaded", () => {
                         h: 32,
                         vx: Math.random() < 0.5 ? 0.5 : -0.5,
                         hp: 3,
-                        lastShootTime: Date.now()
+                        lastShootTime: Date.now(),
+                        lastHitTime: 0
                     });
                     lastEnemySpawnTime = Date.now();
                 }
@@ -605,6 +629,8 @@ document.addEventListener("DOMContentLoaded", () => {
                     // Paddle hit
                     if (!paddle.destroyed && bull.y + bull.h > paddle.y && bull.y < paddle.y + paddle.h && bull.x + bull.w > paddle.x && bull.x < paddle.x + paddle.w) {
                         bull.dead = true;
+                        paddle.nBuffEndTime = 0; // Cancel N buff if active
+
                         if (Date.now() < paddle.ndEndTime) {
                             paddle.destroyed = true;
                         } else if (Date.now() < paddle.foundEndTime) {
@@ -646,20 +672,42 @@ document.addEventListener("DOMContentLoaded", () => {
                     ctx.fillRect(s.x, s.y, 2, 2);
                 });
             } else {
-                cloudOffset -= 0.5;
-                if (cloudOffset < -CANVAS_WIDTH) cloudOffset = 0;
-                ctx.fillStyle = 'rgba(200, 200, 200, 0.4)';
-                const drawCloud = (cx, cy) => {
-                    ctx.beginPath();
-                    ctx.arc(cx, cy, 30, 0, Math.PI * 2);
-                    ctx.arc(cx + 35, cy - 15, 35, 0, Math.PI * 2);
-                    ctx.arc(cx + 70, cy, 30, 0, Math.PI * 2);
-                    ctx.fill();
-                };
-                drawCloud(cloudOffset + 200, 80);
-                drawCloud(cloudOffset + 600, 150);
-                drawCloud(cloudOffset + CANVAS_WIDTH + 200, 80);
-                drawCloud(cloudOffset + CANVAS_WIDTH + 600, 150);
+                const cloudSprites = [
+                    [ "  1111  ", " 111111 ", "11111111" ],
+                    [ "   111   ", "  11111  ", " 1111111 ", "111111111" ],
+                    [ "  11  11  ", " 11111111 ", "1111111111" ]
+                ];
+                const birdSprite1 = [ "10001", "01010", "00100" ];
+                const birdSprite2 = [ "00000", "11011", "00100" ];
+
+                clouds.forEach(c => {
+                    c.x -= c.speed;
+                    if (c.x < -100) {
+                        c.x = CANVAS_WIDTH + 50;
+                        c.y = 50 + Math.random() * 150;
+                        c.type = Math.random() < 0.25 ? 'bird' : 'cloud';
+                        c.cloudId = Math.floor(Math.random() * 3);
+                        c.speed = 0.25 + Math.random() * 0.25;
+                    }
+                    
+                    let sprite;
+                    if (c.type === 'bird') {
+                        sprite = Math.floor(Date.now() / 400) % 2 === 0 ? birdSprite1 : birdSprite2;
+                        ctx.fillStyle = 'rgba(160, 160, 160, 0.6)';
+                    } else {
+                        sprite = cloudSprites[c.cloudId];
+                        ctx.fillStyle = 'rgba(200, 200, 200, 0.4)';
+                    }
+                    
+                    const dotSize = 5;
+                    for (let r = 0; r < sprite.length; r++) {
+                        for (let col = 0; col < sprite[r].length; col++) {
+                            if (sprite[r][col] === '1') {
+                                ctx.fillRect(c.x + col * dotSize, c.y + r * dotSize, dotSize, dotSize);
+                            }
+                        }
+                    }
+                });
             }
         }
 
@@ -712,9 +760,16 @@ document.addEventListener("DOMContentLoaded", () => {
             ctx.textAlign = 'center';
             ctx.font = '32px "Press Start 2P"';
             enemies.forEach(en => {
-                ctx.globalAlpha = en.hp === 3 ? 1.0 : (en.hp === 2 ? 0.6 : 0.3);
+                let chars = ['N', 'O', 'T'];
+                let offsets = [-32, 0, 32];
                 ctx.fillStyle = textColor;
-                ctx.fillText('NOT', en.x, en.y + en.h / 2);
+                chars.forEach((c, idx) => {
+                    if (en.hp === 3) ctx.globalAlpha = 1.0;
+                    else if (en.hp === 2) ctx.globalAlpha = idx < 2 ? 1.0 : 0.3; 
+                    else ctx.globalAlpha = idx === 0 ? 1.0 : 0.3; 
+                    
+                    ctx.fillText(c, en.x + offsets[idx], en.y + en.h / 2);
+                });
             });
             ctx.globalAlpha = 1.0;
 
