@@ -110,7 +110,7 @@ document.addEventListener("DOMContentLoaded", () => {
     let balls = [];
     let items = [];
     let blocks = [];
-    let globalSpeedMult = 1.0;
+    let globalSpeedMult = 1.1;
 
     let currentStage = 1;
     let enemies = [];
@@ -273,7 +273,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         balls = [];
         items = [];
-        globalSpeedMult = 1.0;
+        globalSpeedMult = 1.1;
         paddle.x = CANVAS_WIDTH / 2 - paddle.w / 2;
         paddle.nBuffEndTime = 0;
         initBlocks();
@@ -387,6 +387,14 @@ document.addEventListener("DOMContentLoaded", () => {
             if (paddle.x > CANVAS_WIDTH - paddle.w) paddle.x = CANVAS_WIDTH - paddle.w;
 
             balls.forEach(b => {
+                let currentBaseSpeed = Math.sqrt(b.vx * b.vx + b.vy * b.vy);
+                let minVy = currentBaseSpeed * 0.25;
+                if (Math.abs(b.vy) < minVy) {
+                    b.vy = b.vy >= 0 ? minVy : -minVy;
+                    let newVx = Math.sqrt(currentBaseSpeed * currentBaseSpeed - b.vy * b.vy);
+                    b.vx = b.vx >= 0 ? newVx : -newVx;
+                }
+
                 b.x += b.vx * globalSpeedMult;
                 b.y += b.vy * globalSpeedMult;
 
@@ -700,7 +708,7 @@ document.addEventListener("DOMContentLoaded", () => {
             }
 
             if (balls.length === 0 && gameState === 'PLAYING') {
-                globalSpeedMult = 1.0 + (globalSpeedMult - 1.0) / 2.0;
+                globalSpeedMult = 1.1 + (globalSpeedMult - 1.1) / 2.0;
                 if (!spawnBall()) {
                     gameState = 'GAMEOVER';
                 } else {
