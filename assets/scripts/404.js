@@ -110,7 +110,7 @@ document.addEventListener("DOMContentLoaded", () => {
     let balls = [];
     let items = [];
     let blocks = [];
-    let globalSpeedMult = 1.1;
+    let globalSpeedMult = 1.25;
 
     let currentStage = 1;
     let enemies = [];
@@ -273,7 +273,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         balls = [];
         items = [];
-        globalSpeedMult = 1.1;
+        globalSpeedMult = 1.25;
         paddle.x = CANVAS_WIDTH / 2 - paddle.w / 2;
         paddle.nBuffEndTime = 0;
         initBlocks();
@@ -990,7 +990,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const startGame = () => {
         gameContainer.classList.remove('hidden');
         document.body.style.overflow = 'hidden';
-        
+
         // Hide background shapes and error card to improve Safari rendering performance
         const bgShapes = document.querySelector('.bg-shapes');
         const errorCard = document.querySelector('.error-card');
