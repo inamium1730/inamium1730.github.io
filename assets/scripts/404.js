@@ -49,19 +49,19 @@ document.addEventListener("DOMContentLoaded", () => {
         if (isMuted) return;
         if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         if (audioCtx.state === 'suspended') audioCtx.resume();
-        
+
         const osc = audioCtx.createOscillator();
         const gainNode = audioCtx.createGain();
-        
+
         osc.type = type;
         osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
-        
+
         gainNode.gain.setValueAtTime(0.05, audioCtx.currentTime);
         gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
-        
+
         osc.connect(gainNode);
         gainNode.connect(audioCtx.destination);
-        
+
         osc.start();
         osc.stop(audioCtx.currentTime + duration);
     };
@@ -71,7 +71,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const gameContainer = document.getElementById('game-container');
     const canvas = document.getElementById('game-canvas');
     const ctx = canvas.getContext('2d');
-    
+
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || ('ontouchstart' in window);
 
     let clickCount = 0;
@@ -111,10 +111,21 @@ document.addEventListener("DOMContentLoaded", () => {
     let items = [];
     let blocks = [];
     let globalSpeedMult = 1.0;
-    let paddle = { x: CANVAS_WIDTH / 2 - 130, y: CANVAS_HEIGHT - 60, w: 260, h: 30, text: 'NOTFOUND', nBuffEndTime: 0 };
+
+    let currentStage = 1;
+    let enemies = [];
+    let enemyBullets = [];
+    let lastEnemySpawnTime = 0;
+    let stars = [];
+    for (let i = 0; i < 50; i++) stars.push({ x: Math.random() * CANVAS_WIDTH, y: Math.random() * (CANVAS_HEIGHT / 2), phase: Math.random() * Math.PI * 2 });
+    let cloudOffset = 0;
+
+    let cheatBuffer = [];
+
+    let paddle = { x: CANVAS_WIDTH / 2 - 130, y: CANVAS_HEIGHT - 60, w: 260, h: 30, text: 'NOTFOUND', nBuffEndTime: 0, foundEndTime: 0, ndEndTime: 0, destroyed: false };
     let keys = { left: false, right: false };
 
-    const MAP = [
+    const MAP1 = [
         "444      444   000000000000   444      444",
         "444      444   000000000000   444      444",
         "444      444   000000000000   444      444",
@@ -127,16 +138,27 @@ document.addEventListener("DOMContentLoaded", () => {
         "         444   000000000000            444"
     ];
 
+    const MAP2 = [
+        "NNN      NNN    OOOOOOOOOO    TTTTTTTTTTTT",
+        "NNNN     NNN   OOOOOOOOOOOO   TTTTTTTTTTTT",
+        "NNNNN    NNN   OOOOOOOOOOOO   TTTTTTTTTTTT",
+        "NNN NN   NNN   OOO      OOO       TTTT    ",
+        "NNN  NN  NNN   OOO      OOO       TTTT    ",
+        "NNN   NN NNN   OOO      OOO       TTTT    ",
+        "NNN    NNNNN   OOOOOOOOOOOO       TTTT    ",
+        "NNN     NNNN   OOOOOOOOOOOO       TTTT    ",
+        "NNN      NNN    OOOOOOOOOO        TTTT    "
+    ];
+
     const initBlocks = () => {
         blocks = [];
-        const blockW = 20;
+        const blockW = 18;
         const blockH = 24;
-        const startX = (CANVAS_WIDTH - (MAP[0].length * blockW)) / 2;
+        const startX = (CANVAS_WIDTH - ((currentStage === 1 ? MAP1 : MAP2)[0].length * blockW)) / 2;
         const startY = 100;
-
-        for (let r = 0; r < MAP.length; r++) {
-            for (let c = 0; c < MAP[r].length; c++) {
-                const char = MAP[r][c];
+        for (let r = 0; r < (currentStage === 1 ? MAP1 : MAP2).length; r++) {
+            for (let c = 0; c < (currentStage === 1 ? MAP1 : MAP2)[r].length; c++) {
+                const char = (currentStage === 1 ? MAP1 : MAP2)[r][c];
                 if (char !== ' ') {
                     blocks.push({
                         x: startX + c * blockW,
@@ -144,32 +166,76 @@ document.addEventListener("DOMContentLoaded", () => {
                         w: blockW,
                         h: blockH,
                         char: char,
-                        active: true
+                        active: true,
+                        itemType: null
                     });
                 }
             }
+        }
+
+        let totalBlocksCount = blocks.length;
+        let nBuffCount = Math.round(totalBlocksCount * 0.04);
+        let normal3Count = Math.round(totalBlocksCount * 0.01);
+        let normal2Count = Math.round(totalBlocksCount * 0.01);
+        let normal1Count = Math.round(totalBlocksCount * 0.02);
+
+        let typesToAssign = [];
+        for (let i = 0; i < nBuffCount; i++) typesToAssign.push('nbuff');
+        for (let i = 0; i < normal3Count; i++) typesToAssign.push('normal_3');
+        for (let i = 0; i < normal2Count; i++) typesToAssign.push('normal_2');
+        for (let i = 0; i < normal1Count; i++) typesToAssign.push('normal_1');
+
+        let availableIndices = Array.from({ length: blocks.length }, (_, i) => i);
+
+        for (let type of typesToAssign) {
+            if (availableIndices.length === 0) break;
+            let randIdx = Math.floor(Math.random() * availableIndices.length);
+            let blockIdx = availableIndices[randIdx];
+            blocks[blockIdx].itemType = type;
+            availableIndices.splice(randIdx, 1);
         }
     };
 
     const spawnBall = () => {
         if (reserve.length === 0) return false;
-        const char = reserve.pop();
+        let char = reserve.shift();
+
+        paddle.destroyed = false;
+        paddle.ndEndTime = 0;
+        paddle.foundEndTime = 0;
+        paddle.text = 'NOTFOUND';
+        paddle.w = 260;
+
         balls.push({
             x: paddle.x + paddle.w / 2,
             y: paddle.y - 20,
-            vx: 0,
-            vy: 0,
+            vx: (Math.random() > 0.5 ? 1 : -1) * 1.25,
+            vy: -2,
             size: 20,
             char: char,
             color: null,
             isEnhanced: false
         });
+        paddle.nBuffEndTime = 0;
         return true;
     };
 
-    const resetGame = () => {
+    const resetGame = (advanceStage = false) => {
+        if (advanceStage) {
+            currentStage = currentStage === 1 ? 2 : 1;
+        }
         score = 0;
         reserve = ['4', '0', '4'];
+
+        enemies = [];
+        enemyBullets = [];
+        lastEnemySpawnTime = Date.now();
+        paddle.foundEndTime = 0;
+        paddle.ndEndTime = 0;
+        paddle.destroyed = false;
+        paddle.w = 260;
+        paddle.text = 'NOTFOUND';
+
         balls = [];
         items = [];
         globalSpeedMult = 1.0;
@@ -189,27 +255,27 @@ document.addEventListener("DOMContentLoaded", () => {
     };
 
     const rectIntersect = (r1, r2) => {
-        return !(r2.x > r1.x + r1.w || 
-                 r2.x + r2.w < r1.x || 
-                 r2.y > r1.y + r1.h ||
-                 r2.y + r2.h < r1.y);
+        return !(r2.x > r1.x + r1.w ||
+            r2.x + r2.w < r1.x ||
+            r2.y > r1.y + r1.h ||
+            r2.y + r2.h < r1.y);
     };
 
     const getAutoAimVelocity = (startX, startY, normalVx, normalVy, currentBaseSpeed) => {
         const activeBlocks = blocks.filter(bl => bl.active);
         let bestDist = Infinity;
         let bestTarget = null;
-        
+
         if (activeBlocks.length > 0) {
             let unfoldedBlocks = [];
             activeBlocks.forEach(bl => {
-                let cx = bl.x + bl.w/2;
-                let cy = bl.y + bl.h/2;
+                let cx = bl.x + bl.w / 2;
+                let cy = bl.y + bl.h / 2;
                 unfoldedBlocks.push({ x: cx, y: cy });
                 unfoldedBlocks.push({ x: CANVAS_WIDTH + (CANVAS_WIDTH - cx), y: cy });
                 unfoldedBlocks.push({ x: -cx, y: cy });
             });
-            
+
             for (let target of unfoldedBlocks) {
                 let V = { x: target.x - startX, y: target.y - startY };
                 let dot = V.x * normalVx + V.y * normalVy;
@@ -222,11 +288,11 @@ document.addEventListener("DOMContentLoaded", () => {
                 }
             }
         }
-        
+
         if (bestTarget) {
             let dx = bestTarget.x - startX;
             let dy = bestTarget.y - startY;
-            let dist = Math.sqrt(dx*dx + dy*dy);
+            let dist = Math.sqrt(dx * dx + dy * dy);
             return {
                 vx: (dx / dist) * currentBaseSpeed,
                 vy: (dy / dist) * currentBaseSpeed
@@ -236,20 +302,45 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     };
 
+    const transferItem = (type) => {
+        let available = blocks.filter(b => b.active && !b.itemType);
+        if (available.length > 0) {
+            let randBlock = available[Math.floor(Math.random() * available.length)];
+            randBlock.itemType = type;
+        }
+    };
+
     const update = () => {
+        // Update paddle state based on penalties
+        if (paddle.destroyed) {
+            paddle.text = '';
+            paddle.w = 0;
+        } else if (Date.now() < paddle.ndEndTime) {
+            paddle.text = 'ND';
+            paddle.w = 64;
+        } else if (Date.now() < paddle.foundEndTime) {
+            paddle.text = 'FOUND';
+            paddle.w = 160;
+        } else {
+            paddle.text = 'NOTFOUND';
+            paddle.w = 260;
+        }
+        // Ensure paddle doesn't go out of bounds after resize
+        if (paddle.x + paddle.w > CANVAS_WIDTH) paddle.x = CANVAS_WIDTH - paddle.w;
+
         if (gameState === 'TUTORIAL' || gameState === 'READY') {
             if (keys.left) paddle.x -= 8;
             if (keys.right) paddle.x += 8;
             if (paddle.x < 0) paddle.x = 0;
             if (paddle.x > CANVAS_WIDTH - paddle.w) paddle.x = CANVAS_WIDTH - paddle.w;
-            
+
             if (balls.length > 0) {
                 balls[0].x = paddle.x + paddle.w / 2;
                 balls[0].y = paddle.y - 20;
             }
             return;
         }
-        
+
         if (gameState === 'PLAYING') {
             if (keys.left) paddle.x -= 8;
             if (keys.right) paddle.x += 8;
@@ -261,31 +352,32 @@ document.addEventListener("DOMContentLoaded", () => {
                 b.y += b.vy * globalSpeedMult;
 
                 let wallHit = false;
-                if (b.x - b.size/2 < 0) { b.x = b.size/2; b.vx *= -1; wallHit = true; }
-                if (b.x + b.size/2 > CANVAS_WIDTH) { b.x = CANVAS_WIDTH - b.size/2; b.vx *= -1; wallHit = true; }
-                if (b.y - b.size/2 < 0) { b.y = b.size/2; b.vy *= -1; wallHit = true; }
+                if (b.x - b.size / 2 < 0) { b.x = b.size / 2; b.vx *= -1; wallHit = true; }
+                if (b.x + b.size / 2 > CANVAS_WIDTH) { b.x = CANVAS_WIDTH - b.size / 2; b.vx *= -1; wallHit = true; }
+                if (b.y - b.size / 2 < 0) { b.y = b.size / 2; b.vy *= -1; wallHit = true; }
                 if (wallHit) playBeep(200);
-                
+                // The enemy update logic was accidentally here
+
                 // Paddle collision
-                if (b.vy > 0 && b.y + b.size/2 > paddle.y && b.y - b.size/2 < paddle.y + paddle.h && b.x > paddle.x && b.x < paddle.x + paddle.w) {
-                    b.y = paddle.y - b.size/2;
+                if (!paddle.destroyed && b.vy > 0 && b.y + b.size / 2 > paddle.y && b.y - b.size / 2 < paddle.y + paddle.h && b.x > paddle.x && b.x < paddle.x + paddle.w) {
+                    b.y = paddle.y - b.size / 2;
                     let currentBaseSpeed = Math.sqrt(b.vx * b.vx + b.vy * b.vy);
-                    
+
                     if (Date.now() < paddle.nBuffEndTime) {
                         b.isEnhanced = true;
-                        
-                        let hitFactor = (b.x - (paddle.x + paddle.w/2)) / (paddle.w / 2);
-                        let maxVx = currentBaseSpeed * 0.85; 
+
+                        let hitFactor = (b.x - (paddle.x + paddle.w / 2)) / (paddle.w / 2);
+                        let maxVx = currentBaseSpeed * 0.85;
                         let normalVx = hitFactor * maxVx;
                         let normalVy = -Math.sqrt(currentBaseSpeed * currentBaseSpeed - normalVx * normalVx);
-                        
+
                         let aimedVelocity = getAutoAimVelocity(b.x, b.y, normalVx, normalVy, currentBaseSpeed);
                         b.vx = aimedVelocity.vx;
                         b.vy = aimedVelocity.vy;
                     } else {
                         b.isEnhanced = false;
-                        let hitFactor = (b.x - (paddle.x + paddle.w/2)) / (paddle.w / 2);
-                        let maxVx = currentBaseSpeed * 0.85; 
+                        let hitFactor = (b.x - (paddle.x + paddle.w / 2)) / (paddle.w / 2);
+                        let maxVx = currentBaseSpeed * 0.85;
                         b.vx = hitFactor * maxVx;
                         b.vy = -Math.sqrt(currentBaseSpeed * currentBaseSpeed - b.vx * b.vx);
                     }
@@ -296,19 +388,19 @@ document.addEventListener("DOMContentLoaded", () => {
                 // Block collision
                 for (let bl of blocks) {
                     if (!bl.active) continue;
-                    let br = { x: b.x - b.size/2, y: b.y - b.size/2, w: b.size, h: b.size };
+                    let br = { x: b.x - b.size / 2, y: b.y - b.size / 2, w: b.size, h: b.size };
                     let blockR = { x: bl.x, y: bl.y, w: bl.w, h: bl.h };
                     if (rectIntersect(br, blockR)) {
                         bl.active = false;
                         score++;
                         playBeep(200);
-                        
+
                         let overlapLeft = (br.x + br.w) - blockR.x;
                         let overlapRight = (blockR.x + blockR.w) - br.x;
                         let overlapTop = (br.y + br.h) - blockR.y;
                         let overlapBottom = (blockR.y + blockR.h) - br.y;
                         let minOverlap = Math.min(overlapLeft, overlapRight, overlapTop, overlapBottom);
-                        
+
                         if (!(b.isEnhanced && Date.now() < paddle.nBuffEndTime)) {
                             if (minOverlap === overlapLeft || minOverlap === overlapRight) {
                                 b.vx *= -1;
@@ -317,45 +409,115 @@ document.addEventListener("DOMContentLoaded", () => {
                             }
                         }
 
-                        let dropChance = 0.01;
-                        if (reserve.length === 1) dropChance = 0.02;
-                        if (reserve.length === 0) dropChance = 0.04;
-
-                        if (items.length < 2 && Math.random() < dropChance) {
-                            const itemChar = Math.random() < 0.5 ? '4' : '0';
-                            const needed = getNeededHealChar();
-                            let type = 'multiball';
-                            let color = '#facc15';
-                            if (needed === itemChar) {
-                                type = 'heal';
-                                color = '#a3e635';
+                        if (bl.itemType) {
+                            if (bl.itemType === 'nbuff') {
+                                if (Date.now() < paddle.nBuffEndTime || items.filter(i => i.char === 'N').length >= 1) {
+                                    transferItem('nbuff');
+                                } else {
+                                    items.push({
+                                        x: bl.x + bl.w / 2,
+                                        y: bl.y + bl.h / 2,
+                                        vy: 1.5,
+                                        char: 'N',
+                                        color: currentTheme === 'dark' ? '#38bdf8' : '#0284c7',
+                                        type: 'nbuff',
+                                        size: 20
+                                    });
+                                }
+                            } else if (bl.itemType.startsWith('normal_')) {
+                                let req = parseInt(bl.itemType.split('_')[1]);
+                                if (reserve.length <= req) {
+                                    if (items.filter(i => i.type !== 'nbuff').length >= 2) {
+                                        transferItem(bl.itemType);
+                                    } else {
+                                        const itemChar = Math.random() < 0.5 ? '4' : '0';
+                                        const needed = getNeededHealChar();
+                                        let type = 'multiball';
+                                        let color = '#facc15';
+                                        if (needed === itemChar) {
+                                            type = 'heal';
+                                            color = '#a3e635';
+                                        }
+                                        items.push({
+                                            x: bl.x + bl.w / 2,
+                                            y: bl.y + bl.h / 2,
+                                            vy: 1.5,
+                                            char: itemChar,
+                                            color: color,
+                                            type: type,
+                                            size: 20
+                                        });
+                                    }
+                                }
                             }
-                            items.push({
-                                x: bl.x + bl.w/2,
-                                y: bl.y + bl.h/2,
-                                vy: 1.5,
-                                char: itemChar,
-                                color: color,
-                                type: type,
-                                size: 20
-                            });
-                        } else if (Date.now() >= paddle.nBuffEndTime && items.filter(i => i.char === 'N').length < 1 && Math.random() < 0.04) {
-                            items.push({
-                                x: bl.x + bl.w/2,
-                                y: bl.y + bl.h/2,
-                                vy: 1.5,
-                                char: 'N',
-                                color: '#38bdf8', // light blue
-                                type: 'nbuff',
-                                size: 20
-                            });
                         }
-                        
+
                         if (blocks.filter(b => b.active).length === 0) {
                             gameState = 'GAMECLEAR';
                         }
-                        break; 
+                        break;
                     }
+                }
+
+                let bBox = { x: b.x - b.size / 2, y: b.y - b.size, w: b.size, h: b.size };
+
+                if (currentStage === 2) {
+                    // Enemy collision
+                    enemies.forEach(en => {
+                        if (!en.dead && rectIntersect(bBox, { x: en.x - en.w / 2, y: en.y - en.h / 2, w: en.w, h: en.h })) {
+                            if (b.isEnhanced && Date.now() < paddle.nBuffEndTime) {
+                                en.hp = 0;
+                            } else {
+                                en.hp--;
+                                b.vy *= -1;
+                            }
+                            if (en.hp <= 0) {
+                                en.dead = true;
+                                const itemChar = Math.random() < 0.5 ? '4' : '0';
+                                const needed = getNeededHealChar();
+                                let type = 'multiball'; let color = '#facc15';
+                                if (needed === itemChar) { type = 'heal'; color = '#a3e635'; }
+                                items.push({ x: en.x, y: en.y, vy: 1.5, char: itemChar, color: color, type: type, size: 20 });
+                            }
+                        }
+                    });
+
+                    // Bullet collision
+                    enemyBullets.forEach(bull => {
+                        if (!bull.dead && rectIntersect(bBox, bull)) {
+                            if (b.isEnhanced && Date.now() < paddle.nBuffEndTime) {
+                                bull.dead = true;
+                            } else {
+                                b.vy *= -1;
+                                bull.dead = true;
+                            }
+                        }
+                    });
+                }
+
+                // Paddle collision
+                if (!paddle.destroyed && b.vy > 0 && b.y > paddle.y - b.size && b.y < paddle.y + paddle.h && b.x > paddle.x - b.size && b.x < paddle.x + paddle.w + b.size) {
+                    b.y = paddle.y - b.size / 2;
+                    let currentBaseSpeed = Math.sqrt(b.vx * b.vx + b.vy * b.vy);
+
+                    if (Date.now() < paddle.nBuffEndTime) {
+                        b.isEnhanced = true;
+                        let hitFactor = (b.x - (paddle.x + paddle.w / 2)) / (paddle.w / 2);
+                        let maxVx = currentBaseSpeed * 0.85;
+                        let normalVx = hitFactor * maxVx;
+                        let normalVy = -Math.sqrt(currentBaseSpeed * currentBaseSpeed - normalVx * normalVx);
+                        let aimedVelocity = getAutoAimVelocity(b.x, b.y, normalVx, normalVy, currentBaseSpeed);
+                        b.vx = aimedVelocity.vx;
+                        b.vy = aimedVelocity.vy;
+                    } else {
+                        b.isEnhanced = false;
+                        let hitFactor = (b.x - (paddle.x + paddle.w / 2)) / (paddle.w / 2);
+                        let maxVx = currentBaseSpeed * 0.85;
+                        b.vx = hitFactor * maxVx;
+                        b.vy = -Math.sqrt(currentBaseSpeed * currentBaseSpeed - b.vx * b.vx);
+                    }
+                    globalSpeedMult += 0.01 / balls.length;
+                    playBeep(800);
                 }
             });
 
@@ -363,7 +525,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
             items.forEach(item => {
                 item.y += item.vy;
-                let ir = { x: item.x - item.size/2, y: item.y - item.size/2, w: item.size, h: item.size };
+                let ir = { x: item.x - item.size / 2, y: item.y - item.size / 2, w: item.size, h: item.size };
                 let pr = { x: paddle.x, y: paddle.y, w: paddle.w, h: paddle.h };
                 if (rectIntersect(ir, pr)) {
                     item.caught = true;
@@ -377,7 +539,7 @@ document.addEventListener("DOMContentLoaded", () => {
                         let isEnhanced = false;
                         let vx = (Math.random() > 0.5 ? 1 : -1) * 1.25;
                         let vy = -2;
-                        
+
                         if (Date.now() < paddle.nBuffEndTime) {
                             isEnhanced = true;
                             let currentBaseSpeed = Math.sqrt(vx * vx + vy * vy);
@@ -393,14 +555,71 @@ document.addEventListener("DOMContentLoaded", () => {
                             vy: vy,
                             size: 20,
                             char: item.char,
-                            color: '#ffffff',
+                            color: null,
                             isEnhanced: isEnhanced
                         });
                     }
                 }
             });
-            
+
             items = items.filter(i => !i.caught && i.y < CANVAS_HEIGHT + 50);
+
+            if (currentStage === 2) {
+                if (Date.now() - lastEnemySpawnTime > 15000 && enemies.length < 3) {
+                    enemies.push({
+                        x: Math.random() * (CANVAS_WIDTH - 120) + 60,
+                        y: 50,
+                        w: 96,
+                        h: 32,
+                        vx: Math.random() < 0.5 ? 0.5 : -0.5,
+                        hp: 3,
+                        lastShootTime: Date.now()
+                    });
+                    lastEnemySpawnTime = Date.now();
+                }
+
+                enemies.forEach(en => {
+                    en.x += en.vx;
+                    if (en.x - en.w / 2 < 0) {
+                        en.x = en.w / 2;
+                        en.vx *= -1;
+                        en.y += 20;
+                    } else if (en.x + en.w / 2 > CANVAS_WIDTH) {
+                        en.x = CANVAS_WIDTH - en.w / 2;
+                        en.vx *= -1;
+                        en.y += 20;
+                    }
+                    if (Date.now() - en.lastShootTime > 3000 + Math.random() * 2000) {
+                        enemyBullets.push({
+                            x: en.x,
+                            y: en.y + 20,
+                            w: 16, h: 48,
+                            vy: 4
+                        });
+                        en.lastShootTime = Date.now();
+                    }
+                });
+
+                enemyBullets.forEach(bull => {
+                    bull.y += bull.vy;
+                    // Paddle hit
+                    if (!paddle.destroyed && bull.y + bull.h > paddle.y && bull.y < paddle.y + paddle.h && bull.x + bull.w > paddle.x && bull.x < paddle.x + paddle.w) {
+                        bull.dead = true;
+                        if (Date.now() < paddle.ndEndTime) {
+                            paddle.destroyed = true;
+                        } else if (Date.now() < paddle.foundEndTime) {
+                            paddle.ndEndTime = Date.now() + 5000;
+                            paddle.foundEndTime = Date.now() + 10000;
+                        } else {
+                            paddle.foundEndTime = Date.now() + 10000;
+                            paddle.ndEndTime = 0;
+                        }
+                    }
+                });
+
+                enemies = enemies.filter(en => !en.dead && en.y < CANVAS_HEIGHT + 100);
+                enemyBullets = enemyBullets.filter(bull => !bull.dead && bull.y < CANVAS_HEIGHT);
+            }
 
             if (balls.length === 0 && gameState === 'PLAYING') {
                 globalSpeedMult = 1.0 + (globalSpeedMult - 1.0) / 2.0;
@@ -415,7 +634,35 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const draw = () => {
         ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-        
+
+        if (currentStage === 2) {
+            if (currentTheme === 'dark') {
+                stars.forEach(s => {
+                    s.phase += 0.03;
+                    let alpha = (Math.sin(s.phase) + 1) / 2;
+                    // Quantize alpha to 4 steps
+                    alpha = Math.floor(alpha * 4) / 3;
+                    ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+                    ctx.fillRect(s.x, s.y, 2, 2);
+                });
+            } else {
+                cloudOffset -= 0.5;
+                if (cloudOffset < -CANVAS_WIDTH) cloudOffset = 0;
+                ctx.fillStyle = 'rgba(200, 200, 200, 0.4)';
+                const drawCloud = (cx, cy) => {
+                    ctx.beginPath();
+                    ctx.arc(cx, cy, 30, 0, Math.PI * 2);
+                    ctx.arc(cx + 35, cy - 15, 35, 0, Math.PI * 2);
+                    ctx.arc(cx + 70, cy, 30, 0, Math.PI * 2);
+                    ctx.fill();
+                };
+                drawCloud(cloudOffset + 200, 80);
+                drawCloud(cloudOffset + 600, 150);
+                drawCloud(cloudOffset + CANVAS_WIDTH + 200, 80);
+                drawCloud(cloudOffset + CANVAS_WIDTH + 600, 150);
+            }
+        }
+
         const textColor = getThemeColor('--text-main') || '#fff';
         const mutedColor = getThemeColor('--text-muted') || '#aaa';
 
@@ -425,7 +672,7 @@ document.addEventListener("DOMContentLoaded", () => {
         ctx.fillStyle = textColor;
         blocks.forEach(bl => {
             if (bl.active) {
-                ctx.fillText(bl.char, bl.x + bl.w/2, bl.y + bl.h/2);
+                ctx.fillText(bl.char, bl.x + bl.w / 2, bl.y + bl.h / 2);
             }
         });
 
@@ -439,7 +686,8 @@ document.addEventListener("DOMContentLoaded", () => {
         balls.forEach(b => {
             let bColor = b.color || textColor;
             if (b.isEnhanced && Date.now() < paddle.nBuffEndTime - 1000) {
-                bColor = (Math.floor(Date.now() / 250) % 2 === 0) ? '#38bdf8' : '#ffffff';
+                let blinkColor = currentTheme === 'dark' ? '#38bdf8' : '#0284c7';
+                bColor = (Math.floor(Date.now() / 250) % 2 === 0) ? blinkColor : textColor;
             }
             ctx.fillStyle = bColor;
             ctx.fillText(b.char, b.x, b.y);
@@ -447,11 +695,40 @@ document.addEventListener("DOMContentLoaded", () => {
 
         ctx.font = '28px "Press Start 2P"';
         let pColor = textColor;
-        if (Date.now() < paddle.nBuffEndTime - 1000) {
-            pColor = (Math.floor(Date.now() / 250) % 2 === 0) ? '#38bdf8' : '#ffffff';
+        let isPenaltyBlink = Date.now() < paddle.ndEndTime || Date.now() < paddle.foundEndTime;
+        if (isPenaltyBlink && Math.floor(Date.now() / 250) % 2 === 0) {
+            pColor = '#ef4444';
+        } else if (Date.now() < paddle.nBuffEndTime - 1000) {
+            let blinkColor = currentTheme === 'dark' ? '#38bdf8' : '#0284c7';
+            pColor = (Math.floor(Date.now() / 250) % 2 === 0) ? blinkColor : textColor;
         }
-        ctx.fillStyle = pColor;
-        ctx.fillText(paddle.text, paddle.x + paddle.w/2, paddle.y + paddle.h/2);
+
+        if (!paddle.destroyed) {
+            ctx.fillStyle = pColor;
+            ctx.fillText(paddle.text, paddle.x + paddle.w / 2, paddle.y + paddle.h / 2);
+        }
+
+        if (currentStage === 2) {
+            ctx.textAlign = 'center';
+            ctx.font = '32px "Press Start 2P"';
+            enemies.forEach(en => {
+                ctx.globalAlpha = en.hp === 3 ? 1.0 : (en.hp === 2 ? 0.6 : 0.3);
+                ctx.fillStyle = textColor;
+                ctx.fillText('NOT', en.x, en.y + en.h / 2);
+            });
+            ctx.globalAlpha = 1.0;
+
+            enemyBullets.forEach(bull => {
+                ctx.save();
+                ctx.translate(bull.x + bull.w / 2, bull.y + bull.h / 2);
+                ctx.rotate(Math.PI / 2);
+                ctx.fillStyle = (Math.floor(Date.now() / 250) % 2 === 0) ? '#ef4444' : textColor;
+                ctx.font = '16px "Press Start 2P"';
+                ctx.textAlign = 'center';
+                ctx.fillText("404", 0, 0);
+                ctx.restore();
+            });
+        }
 
         // Draw Score
         ctx.fillStyle = textColor;
@@ -481,57 +758,57 @@ document.addEventListener("DOMContentLoaded", () => {
         if (gameState === 'TUTORIAL') {
             ctx.fillStyle = 'rgba(0,0,0,0.6)';
             ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-            
+
             if (Math.floor(Date.now() / 1000) % 2 === 0) {
                 ctx.fillStyle = '#fff';
                 ctx.textAlign = 'center';
                 ctx.font = '32px "Press Start 2P"';
-                ctx.fillText("404 NOT FOUND", CANVAS_WIDTH/2, CANVAS_HEIGHT/2 - 60);
+                ctx.fillText("404 NOT FOUND", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 60);
             }
-            
+
             ctx.fillStyle = '#fff';
             ctx.textAlign = 'center';
             ctx.font = '18px "Press Start 2P"';
             let text = isMobile ? "← または → を押して開始" : "A D または ← → を押して開始";
-            ctx.fillText(text, CANVAS_WIDTH/2, CANVAS_HEIGHT/2 + 20);
+            ctx.fillText(text, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 20);
         }
         else if (gameState === 'READY') {
             ctx.fillStyle = 'rgba(0,0,0,0.4)';
             ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-            
+
             ctx.fillStyle = '#fff';
             ctx.textAlign = 'center';
             ctx.font = '18px "Press Start 2P"';
             let text = isMobile ? "← または → を押して再開" : "A D または ← → を押して再開";
-            ctx.fillText(text, CANVAS_WIDTH/2, CANVAS_HEIGHT/2 + 20);
+            ctx.fillText(text, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 20);
         }
         else if (gameState === 'GAMECLEAR') {
             ctx.fillStyle = 'rgba(0,0,0,0.8)';
             ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-            
+
             ctx.fillStyle = '#facc15'; // yellow
             ctx.textAlign = 'center';
             ctx.font = '32px "Press Start 2P"';
-            ctx.fillText("404 NOT FOUND!", CANVAS_WIDTH/2, CANVAS_HEIGHT/2 - 60);
-            
+            ctx.fillText("404 NOT FOUND!", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 60);
+
             ctx.fillStyle = '#fff';
             ctx.font = '18px "Press Start 2P"';
             let text = isMobile ? "画面をタップしてリトライ" : "Space を押してリトライ";
-            ctx.fillText(text, CANVAS_WIDTH/2, CANVAS_HEIGHT/2 + 20);
+            ctx.fillText(text, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 20);
         }
         else if (gameState === 'GAMEOVER') {
             ctx.fillStyle = 'rgba(0,0,0,0.8)';
             ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-            
+
             ctx.fillStyle = '#fca5a5'; // light red
             ctx.textAlign = 'center';
             ctx.font = '32px "Press Start 2P"';
-            ctx.fillText("404 NOT FOUND...", CANVAS_WIDTH/2, CANVAS_HEIGHT/2 - 60);
-            
+            ctx.fillText("404 NOT FOUND...", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 60);
+
             ctx.fillStyle = '#fff';
             ctx.font = '18px "Press Start 2P"';
             let text = isMobile ? "画面をタップしてリトライ" : "Space を押してリトライ";
-            ctx.fillText(text, CANVAS_WIDTH/2, CANVAS_HEIGHT/2 + 20);
+            ctx.fillText(text, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 20);
         }
     };
 
@@ -571,33 +848,51 @@ document.addEventListener("DOMContentLoaded", () => {
     };
 
     if (mobileLeft) {
-        mobileLeft.addEventListener('touchstart', (e) => { e.preventDefault(); keys.left = true; handleMobileInput(); }, {passive: false});
-        mobileLeft.addEventListener('touchend', (e) => { e.preventDefault(); keys.left = false; }, {passive: false});
+        mobileLeft.addEventListener('touchstart', (e) => { e.preventDefault(); keys.left = true; handleMobileInput(); }, { passive: false });
+        mobileLeft.addEventListener('touchend', (e) => { e.preventDefault(); keys.left = false; }, { passive: false });
     }
     if (mobileRight) {
-        mobileRight.addEventListener('touchstart', (e) => { e.preventDefault(); keys.right = true; handleMobileInput(); }, {passive: false});
-        mobileRight.addEventListener('touchend', (e) => { e.preventDefault(); keys.right = false; }, {passive: false});
+        mobileRight.addEventListener('touchstart', (e) => { e.preventDefault(); keys.right = true; handleMobileInput(); }, { passive: false });
+        mobileRight.addEventListener('touchend', (e) => { e.preventDefault(); keys.right = false; }, { passive: false });
     }
 
     canvas.addEventListener('touchstart', (e) => {
         if (!gameContainer.classList.contains('hidden')) {
             if (gameState === 'GAMEOVER' || gameState === 'GAMECLEAR') {
                 e.preventDefault();
-                resetGame();
+                resetGame(gameState === 'GAMECLEAR');
             }
         }
-    }, {passive: false});
-    
+    }, { passive: false });
+
     canvas.addEventListener('click', (e) => {
         if (!gameContainer.classList.contains('hidden')) {
             if (gameState === 'GAMEOVER' || gameState === 'GAMECLEAR') {
-                resetGame();
+                resetGame(gameState === 'GAMECLEAR');
             }
         }
     });
 
-    window.addEventListener('keydown', (e) => {
+    document.addEventListener('keydown', (e) => {
         if (!gameContainer.classList.contains('hidden')) {
+            if (gameState === 'TUTORIAL') {
+                if (['4', '0'].includes(e.key)) {
+                    cheatBuffer.push(e.key);
+                    if (cheatBuffer.length > 3) cheatBuffer.shift();
+                    if (cheatBuffer.join('') === '404') {
+                        resetGame(true);
+                        gameState = 'READY';
+                        cheatBuffer = [];
+                    }
+                } else {
+                    cheatBuffer = [];
+                }
+            }
+
+            if (e.key === 'r' || e.key === 'R') {
+                resetGame(false);
+            }
+
             if (gameState === 'TUTORIAL' || gameState === 'READY') {
                 if (e.key === 'a' || e.key === 'A' || e.key === 'd' || e.key === 'D' || e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
                     gameState = 'PLAYING';
@@ -609,10 +904,10 @@ document.addEventListener("DOMContentLoaded", () => {
             }
             if (gameState === 'GAMEOVER' || gameState === 'GAMECLEAR') {
                 if (e.key === ' ') {
-                    resetGame();
+                    resetGame(gameState === 'GAMECLEAR');
                 }
             }
-            
+
             if (e.key === 'a' || e.key === 'A' || e.key === 'ArrowLeft') keys.left = true;
             if (e.key === 'd' || e.key === 'D' || e.key === 'ArrowRight') keys.right = true;
         }
