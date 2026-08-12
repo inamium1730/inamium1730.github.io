@@ -1685,9 +1685,10 @@ document.addEventListener("DOMContentLoaded", () => {
                 alpha = 1.0 - ((elapsed - 1000) / 1000);
             }
             ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
-            ctx.font = '24px "Press Start 2P"';
+            ctx.font = '16px "Press Start 2P"';
             ctx.textAlign = 'center';
-            ctx.fillText("Stage " + currentStage + " - 404", CANVAS_WIDTH / 2, CANVAS_HEIGHT - 60);
+            const stageNames = ["", "404", "NOT", "FOUND", "DROP", "404"];
+            ctx.fillText("Stage " + currentStage + " - " + stageNames[currentStage], CANVAS_WIDTH / 2, CANVAS_HEIGHT - 60);
         }
     };
 
