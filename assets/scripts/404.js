@@ -1001,6 +1001,8 @@ document.addEventListener("DOMContentLoaded", () => {
                     } else {
                         if (enemies.length === 0) {
                             bossState.twoEnemiesStartTime = 0;
+                            face.timer = 0;
+                            bossState.stunUntil = 0;
                         } else {
                             let elapsed = Date.now() - bossState.twoEnemiesStartTime;
                             if (elapsed > 30000) {
@@ -1089,7 +1091,8 @@ document.addEventListener("DOMContentLoaded", () => {
                         if (Date.now() > face.timer && Date.now() > bossState.stunUntil && handsIdle) {
                             let isPhase3 = bossState.leftHand.state === 'DEAD' && bossState.rightHand.state === 'DEAD';
                             let limit = isPhase3 ? 4 : 2;
-                            if (enemies.length < limit) {
+                            let isCharging = bossState.twoEnemiesStartTime !== undefined && bossState.twoEnemiesStartTime !== 0;
+                            if (enemies.length < limit && !isCharging) {
                                 face.state = 'TELEGRAPH';
                                 face.timer = Date.now() + 1500;
                             } else {
@@ -1126,7 +1129,8 @@ document.addEventListener("DOMContentLoaded", () => {
                                 });
                             }
 
-                            face.timer = Date.now() + 15000;
+                            let isPhase3 = bossState.leftHand.state === 'DEAD' && bossState.rightHand.state === 'DEAD';
+                            face.timer = Date.now() + (isPhase3 ? 5000 : 15000);
                             face.state = 'IDLE';
                             bossState.stunUntil = Date.now() + 5000;
                         }
