@@ -1,4 +1,4 @@
-import { CANVAS_WIDTH, CANVAS_HEIGHT, MAP1, MAP2, MAP3, MAP4, MAP5 } from './constants.js';
+import { CANVAS_WIDTH, CANVAS_HEIGHT, MAP1, MAP2, MAP3, MAP4, MAP5 } from './constants/maps.js';
 import { state } from './state.js';
 import { playBeep } from './audio.js';
 import { currentTheme } from './theme.js';

@@ -1,5 +1,4 @@
-{
-  "$schema": "./_types/enemies.schema.json",
+export const enemiesData = {
   "NOT": {
     "name": "NOT",
     "stages": [2, 3, 4, 5]
@@ -12,4 +11,4 @@
     "name": "DROP",
     "stages": [4, 5]
   }
-}
+};

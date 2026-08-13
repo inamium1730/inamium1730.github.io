@@ -1,5 +1,5 @@
 import { state } from './404/state.js';
-import { CANVAS_WIDTH, CANVAS_HEIGHT } from './404/constants.js';
+import { CANVAS_WIDTH, CANVAS_HEIGHT } from './404/constants/maps.js';
 import { initTheme } from './404/theme.js';
 import { toggleMute } from './404/audio.js';
 import { resetGame } from './404/entities.js';
@@ -8,18 +8,8 @@ import { draw } from './404/draw.js';
 import { setupInput } from './404/input.js';
 import { isMobile } from './404/utils.js';
 
-document.addEventListener("DOMContentLoaded", async () => {
-    // 1. Fetch external data
-    try {
-        const [enemiesRes, bossesRes] = await Promise.all([
-            fetch('./assets/scripts/404/constants/enemies.json'),
-            fetch('./assets/scripts/404/constants/bosses.json')
-        ]);
-        if (enemiesRes.ok) state.enemiesData = await enemiesRes.json();
-        if (bossesRes.ok) state.bossesData = await bossesRes.json();
-    } catch (e) {
-        console.warn('Failed to load JSON references:', e);
-    }
+document.addEventListener("DOMContentLoaded", () => {
+    // 1. (Removed fetch since data is loaded synchronously in state.js)
 
     // 2. Setup Theme
     const themeToggleBtn = document.getElementById('theme-toggle');

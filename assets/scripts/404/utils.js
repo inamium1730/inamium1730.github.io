@@ -1,4 +1,4 @@
-import { CANVAS_WIDTH } from './constants.js';
+import { CANVAS_WIDTH } from './constants/maps.js';
 import { state } from './state.js';
 
 export const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || ('ontouchstart' in window);

@@ -1,4 +1,4 @@
-import { CANVAS_WIDTH, CANVAS_HEIGHT } from './constants.js';
+import { CANVAS_WIDTH, CANVAS_HEIGHT } from './constants/maps.js';
 import { state } from './state.js';
 import { currentTheme, getThemeColor } from './theme.js';
 import { isMobile } from './utils.js';

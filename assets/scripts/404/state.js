@@ -1,3 +1,6 @@
+import { enemiesData } from './constants/enemies.js';
+import { bossesData } from './constants/bosses.js';
+
 export const state = {
     gameState: 'TUTORIAL', // TUTORIAL, READY, PLAYING, GAMECLEAR, GAMEOVER
     score: 0,
@@ -44,7 +47,7 @@ export const state = {
         twoEnemiesStartTime: 0
     },
 
-    // Reference data loaded from JSON
-    enemiesData: {},
-    bossesData: {}
+    // Reference data loaded from JS
+    enemiesData: enemiesData,
+    bossesData: bossesData
 };
