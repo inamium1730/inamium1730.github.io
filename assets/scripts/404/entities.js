@@ -186,6 +186,26 @@ export const resetGame = (advanceStage = false) => {
     state.cacti = [];
     state.glitchTime = 0;
     
+    state.stars = [];
+    for (let i = 0; i < 50; i++) {
+        state.stars.push({
+            x: Math.random() * CANVAS_WIDTH,
+            y: Math.random() * (CANVAS_HEIGHT - 100),
+            phase: Math.random() * Math.PI * 2
+        });
+    }
+
+    state.clouds = [];
+    for (let i = 0; i < 5; i++) {
+        state.clouds.push({
+            x: Math.random() * CANVAS_WIDTH,
+            y: 50 + Math.random() * 150,
+            speed: 0.25 + Math.random() * 0.25,
+            cloudId: Math.floor(Math.random() * 3),
+            type: Math.random() < 0.25 ? 'bird' : 'cloud'
+        });
+    }
+    
     state.paddle.y = CANVAS_HEIGHT - 60;
     state.paddle.x = CANVAS_WIDTH / 2 - state.paddle.w / 2;
     state.paddle.nBuffEndTime = 0;
