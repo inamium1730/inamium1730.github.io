@@ -96,7 +96,7 @@ export const draw = (ctx) => {
         ctx.fillStyle = currentTheme === 'dark' ? '#333' : '#ccc';
         ctx.fillRect(0, CANVAS_HEIGHT - 30, CANVAS_WIDTH, 30);
     }
-    
+
     if (state.currentStage >= 7 && state.currentStage <= 9) {
         // Draw desert ground
         ctx.fillStyle = currentTheme === 'dark' ? '#3e2723' : '#fde047'; // dark brown or sand
@@ -135,10 +135,10 @@ export const draw = (ctx) => {
                 ctx.fillRect(c.x + 30, c.y + 20, 10, 30); // Right arm up
             });
         }
-        
+
         if (state.currentStage === 9) {
             // Dot art pyramid in the background
-            ctx.fillStyle = currentTheme === 'dark' ? '#78350f' : '#fcd34d'; 
+            ctx.fillStyle = currentTheme === 'dark' ? '#78350f' : '#fcd34d';
             let pyBaseW = 300;
             let pyX = CANVAS_WIDTH / 2 - pyBaseW / 2;
             let pyY = CANVAS_HEIGHT - 100;
@@ -420,7 +420,7 @@ export const draw = (ctx) => {
             ctx.fillStyle = '#fff';
             ctx.textAlign = 'center';
             ctx.font = '32px "Press Start 2P"';
-            
+
             // For fun, we can display boss name if in stage 5 from bossesData, but let's keep original
             ctx.fillText("404 NOT FOUND", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 60);
         }
@@ -435,7 +435,7 @@ export const draw = (ctx) => {
         if (maxStage > 1) {
             ctx.fillStyle = '#fff';
             ctx.font = '14px "Press Start 2P"';
-            let switchText = isMobile ? "2本指タップで順送り / 3本指タップで逆順" : "TAB でステージ切り替え";
+            let switchText = isMobile ? "2本指でタップ でステージ切り替え" : "TAB でステージ切り替え";
             ctx.fillText(switchText, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 60);
         }
     }
