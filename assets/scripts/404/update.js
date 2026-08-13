@@ -50,9 +50,14 @@ export const update = () => {
         state.particles.forEach(p => {
             p.x += p.vx * state.globalSpeedMult;
             p.y += p.vy * state.globalSpeedMult;
-            p.life -= state.globalSpeedMult;
+            if (p.gravity !== undefined) {
+                p.vy += p.gravity * state.globalSpeedMult;
+            }
+            if (p.life !== undefined) {
+                p.life -= (p.decay !== undefined ? p.decay : 0.05) * state.globalSpeedMult;
+            }
         });
-        state.particles = state.particles.filter(p => p.life > 0);
+        state.particles = state.particles.filter(p => (p.life === undefined || p.life > 0) && p.y < CANVAS_HEIGHT + 100);
 
         let spd = 8 * state.globalSpeedMult;
         if (Date.now() < paddle.mudEndTime) spd *= 0.5;
@@ -74,8 +79,18 @@ export const update = () => {
                 b.vx = b.vx >= 0 ? newVx : -newVx;
             }
 
-            b.x += b.vx * state.globalSpeedMult;
-            b.y += b.vy * state.globalSpeedMult;
+            let speedMult = 1.0;
+            if (b.isRecovering) {
+                let progress = (Date.now() - b.recoveryStartTime) / 2000;
+                if (progress >= 1) {
+                    b.isRecovering = false;
+                } else {
+                    speedMult = progress;
+                }
+            }
+
+            b.x += b.vx * state.globalSpeedMult * speedMult;
+            b.y += b.vy * state.globalSpeedMult * speedMult;
 
             let wallHit = false;
             if (b.x - b.size / 2 < 0) { b.x = b.size / 2; b.vx *= -1; wallHit = true; }
@@ -137,6 +152,7 @@ export const update = () => {
 
             for (let bl of state.blocks) {
                 if (!bl.active) continue;
+                if (bl.part === 'blaster') continue;
 
                 if (state.currentStage === 5 && bl.part) {
                     let pState = state.bossState[bl.part];
@@ -178,8 +194,21 @@ export const update = () => {
                                 state.bossState.face.timer = Date.now() + 4000;
                             }
                         }
-                    } else {
+                    } else if (state.currentStage === 10 && bl.part) {
+                        if (bl.part === 'face' && ['WAIT_DROP', 'DROP', 'WAIT_RETURN', 'RETURN'].includes(state.boss403State.face.state)) {
+                            continue;
+                        }
+                        isInvincible = state.boss403State.state !== 'STUNNED'; // Boss 403 blocks are invincible to balls unless STUNNED
+                        if (isInvincible) playBeep(300);
+                        if (state.boss403State.state === 'START_WAIT') {
+                            state.boss403State.state = 'EQUIP_TRIGGERED';
+                        }
+                    }
+                    if (!isInvincible) {
                         bl.active = false;
+                        if (state.currentStage === 10 && bl.part === 'face') {
+                            state.boss403State.face.hp--;
+                        }
                         state.score++;
                         playBeep(200);
                     }
@@ -273,7 +302,8 @@ export const update = () => {
                         if (en.hp <= 0) {
                             en.dead = true;
                             let isPhase3 = state.currentStage === 5 && state.bossState.active && state.bossState.leftHand.state === 'DEAD' && state.bossState.rightHand.state === 'DEAD';
-                            let maxEnemies = state.currentStage === 5 ? (isPhase3 ? 4 : 2) : (state.currentStage === 4 ? 6 : (state.currentStage === 3 ? 4 : 2));
+                            let maxEnemies = state.currentMapData ? (state.currentMapData.maxEnemies || 2) : 2;
+                            if (state.currentStage === 5) maxEnemies = isPhase3 ? 4 : 2;
                             if (Math.random() < 2 / maxEnemies) {
                                 const itemChar = Math.random() < 0.5 ? '4' : '0';
                                 const needed = getNeededHealChar();
@@ -288,9 +318,6 @@ export const update = () => {
                 state.enemyBullets.forEach(bull => {
                     if (!bull.dead && rectIntersect(bBox, bull)) {
                         if (b.isEnhanced && Date.now() < paddle.nBuffEndTime) {
-                            bull.dead = true;
-                        } else {
-                            b.vy *= -1;
                             bull.dead = true;
                         }
                     }
@@ -376,7 +403,7 @@ export const update = () => {
                 });
             }
         }
-        
+
         state.tumbleweeds.forEach(t => {
             t.x += t.vx * state.globalSpeedMult;
             t.rotation -= 0.05 * state.globalSpeedMult;
@@ -386,10 +413,11 @@ export const update = () => {
         if (state.currentStage >= 8 && state.cacti.length === 0) {
             // Generate 3 random cacti
             for (let i = 0; i < 3; i++) {
+                let h = 60 + Math.random() * 40;
                 state.cacti.push({
                     x: 100 + Math.random() * (CANVAS_WIDTH - 200),
-                    y: CANVAS_HEIGHT - 100 - (60 + Math.random() * 40),
-                    h: 60 + Math.random() * 40
+                    y: CANVAS_HEIGHT - 100 - h,
+                    h: h
                 });
             }
         }
@@ -397,18 +425,15 @@ export const update = () => {
         if (state.currentStage >= 2) {
             if (state.currentStage !== 5 && state.currentStage <= 10) {
                 let spawnInterval = state.currentMapData ? state.currentMapData.spawnInterval : 10000;
-                let maxEnemies = 2;
-                if (state.currentStage === 3) maxEnemies = 4;
-                if (state.currentStage >= 4) maxEnemies = 6;
-
+                let maxEnemies = state.currentMapData ? (state.currentMapData.maxEnemies || 0) : 0;
                 if (Date.now() - state.lastEnemySpawnTime > spawnInterval && state.enemies.length < maxEnemies) {
                     state.enemySpawnCount++;
-                    
+
                     let possibleEnemies = Object.keys(state.enemiesData).filter(enType => {
                         let data = state.enemiesData[enType];
                         return data.stages && data.stages.includes(state.currentStage);
                     });
-                    
+
                     let enType = 'NOT';
                     if (possibleEnemies.length > 0) {
                         let pool = [];
@@ -423,7 +448,7 @@ export const update = () => {
                     let enData = state.enemiesData[enType] || { name: 'NOT' };
                     let enW = enData.name.length * 32;
                     let enHp = enData.name.length;
-                    
+
                     state.enemies.push({
                         x: Math.random() * (CANVAS_WIDTH - enW) + (enW / 2),
                         y: 50,
@@ -514,7 +539,6 @@ export const update = () => {
                             vx: 0, vy: 0, type: 'LASER',
                             fireStartTime: Date.now(), dead: false
                         });
-                        playBeep(800);
                     }
                 } else if (en.actionState === 'FIRING') {
                     if (Date.now() - en.actionStartTime > 500) {
@@ -531,25 +555,76 @@ export const update = () => {
                     bull.vy += 0.2;
                     bull.x += bull.vx * state.globalSpeedMult;
                     bull.y += bull.vy * state.globalSpeedMult;
-                    
+
                     if (bull.y >= paddle.y) {
                         bull.dead = true;
                         ['m', 'u', 'd'].forEach((char, idx) => {
                             let angle = -Math.PI / 2 + (idx - 1) * 0.5;
-                            let speed = 3 + Math.random() * 2;
+                            let speed = 1.5 + Math.random() * 1;
                             state.enemyBullets.push({
                                 x: bull.x, y: bull.y, w: 16, h: 16,
                                 vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
                                 type: 'MUD_SHRAPNEL', char: char, dead: false
                             });
                         });
-                        playBeep(400);
                     }
                 } else if (bull.type === 'MUD_SHRAPNEL') {
                     bull.vy += 0.2;
                     bull.x += bull.vx * state.globalSpeedMult;
                     bull.y += bull.vy * state.globalSpeedMult;
                     if (bull.y > CANVAS_HEIGHT) bull.dead = true;
+
+                } else if (bull.type === '403_COUNTER_RETURN') {
+                    bull.x += bull.vx * state.globalSpeedMult;
+                    bull.y += bull.vy * state.globalSpeedMult;
+
+                    if (state.currentStage === 10 && state.boss403State.active) {
+                        let bs = state.boss403State;
+                        let blasterBlocks = state.blocks.filter(b => b.active && b.part === 'blaster');
+                        let hitBlock = false;
+                        for (let b of blasterBlocks) {
+                            if (bull.x > b.x && bull.x < b.x + b.w && bull.y > b.y && bull.y < b.y + b.h) {
+                                hitBlock = true;
+                                break;
+                            }
+                        }
+
+                        if (hitBlock) {
+                            bull.dead = true;
+                            bs.counterHitCount = (bs.counterHitCount || 0) + 1;
+                            
+                            // Small shake
+                            bs.blasterX += (Math.random() - 0.5) * 20;
+                            bs.blasterY += (Math.random() - 0.5) * 20;
+                            playBeep(200);
+
+                            if (bs.counterHitCount >= 8 && !bs.counterSuccessTime) {
+                                bs.counterSuccessTime = Date.now();
+                                bs.faceShakeEndTime = Date.now() + 1000;
+                                
+                                // Start ball recovery immediately on destruction
+                                state.balls.forEach(b => {
+                                    b.isRecovering = true;
+                                    b.recoveryStartTime = Date.now();
+                                    b.vx = b.storedVx || (Math.random() - 0.5) * 5;
+                                    b.vy = b.storedVy || 5;
+                                });
+
+                                blasterBlocks.forEach(blk => {
+                                    blk.active = false;
+                                    state.particles.push({
+                                        x: blk.x + blk.w / 2, y: blk.y + blk.h / 2,
+                                        vx: (Math.random() - 0.5) * 15,
+                                        vy: -5 - Math.random() * 5,
+                                        gravity: 0.5,
+                                        life: 1.0, maxLife: 1.0, decay: 0.005,
+                                        color: blk.color || (currentTheme === 'dark' ? '#f3f4f6' : '#111827'),
+                                        char: '4'
+                                    });
+                                });
+                            }
+                        }
+                    }
                 } else if (bull.type === 'LASER') {
                     let elapsed = Date.now() - bull.fireStartTime;
                     if (elapsed >= 500) bull.dead = true;
@@ -625,7 +700,6 @@ export const update = () => {
                                 paddle.foundEndTime = Date.now() + 10000;
                                 paddle.ndEndTime = 0;
                             }
-                            playBeep(100);
                         }
                     }
                 } else {
@@ -638,11 +712,28 @@ export const update = () => {
                     }
 
                     if (isHit) {
-                        if (bull.type === 'MUD' || bull.type === 'MUD_SHRAPNEL') {
+
+                        if (bull.type === '403_COUNTER_BULLET') {
+                            bull.type = '403_COUNTER_RETURN';
+                            let bs = state.boss403State;
+                            let dx = bs.blasterX - bull.x;
+                            let dy = bs.blasterY - bull.y;
+                            let angle = Math.atan2(dy, dx);
+                            bull.vx = Math.cos(angle) * 15;
+                            bull.vy = Math.sin(angle) * 15;
+                            playBeep(400);
+                        } else if (bull.type === 'MUD' || bull.type === 'MUD_SHRAPNEL') {
                             paddle.mudEndTime = Date.now() + 10000;
                             bull.dead = true;
-                            playBeep(150);
                         } else {
+                            if (bull.type.startsWith('403_')) {
+                                if (state.boss403State.barrageHit || (bull.shotId && paddle.lastHitShotId === bull.shotId)) {
+                                    bull.dead = true;
+                                    return; // skip damage
+                                }
+                                state.boss403State.barrageHit = true;
+                                if (bull.shotId) paddle.lastHitShotId = bull.shotId;
+                            }
                             bull.dead = true;
                             if (Date.now() < paddle.ndEndTime) {
                                 paddle.destroyed = true;
@@ -702,7 +793,6 @@ export const update = () => {
                                         dead: false
                                     });
                                 });
-                                playBeep(400);
                             }
                         }
                     }
@@ -756,7 +846,6 @@ export const update = () => {
                                 maxLife: 80
                             });
                         }
-                        playBeep(100);
                     }
                 }
             } else if (face.state !== 'DEAD' && face.hp > 0) {
@@ -840,7 +929,6 @@ export const update = () => {
                                     maxLife: 60
                                 });
                             }
-                            playBeep(100);
                         }
                     }
                     return;
@@ -987,6 +1075,686 @@ export const update = () => {
                 }
             }
         }
+
+        if (state.currentStage === 10 && state.boss403State.active) {
+            let bs = state.boss403State;
+            let faceBlocks = state.blocks.filter(b => b.active && b.part === 'face');
+            let blasterBlocks = state.blocks.filter(b => b.part === 'blaster');
+
+            let dt = 16.666;
+
+            // Continuous hovering
+            if (bs.faceShakeEndTime && Date.now() < bs.faceShakeEndTime) {
+                bs.face.xOffset = (Math.random() - 0.5) * 40;
+                bs.face.yOffset = 0;
+            } else if (bs.face.state !== 'DROP' && bs.face.state !== 'RETURN' && bs.face.state !== 'PREP' && bs.face.state !== 'WAIT_RETURN' && bs.face.state !== 'WAIT_DROP') {
+                bs.face.xOffset = Math.sin(Date.now() * 0.001) * 7.5; // Reduced from 30
+                bs.face.yOffset = Math.sin(Date.now() * 0.002) * 3.75; // Reduced from 15
+            }
+
+            let hpRatio = bs.face.hp / bs.face.maxHp;
+
+            if (bs.phase === 1 && hpRatio <= 0.67 && bs.state === 'WAITING') {
+                bs.phase = 2;
+                playBeep(200);
+            } else if (bs.phase === 2 && hpRatio <= 0.33 && bs.state === 'WAITING') {
+                bs.phase = 3;
+                playBeep(200);
+            }
+
+            if (hpRatio <= 0.05 && bs.state !== 'DYING' && bs.state !== 'DEAD') {
+                bs.state = 'DYING';
+                bs.timer = Date.now() + 5000;
+                state.balls.forEach(b => { b.vx = 0; b.vy = 0; b.isEnhanced = false; });
+                playBeep(100);
+            }
+
+            if (bs.state === 'DYING') {
+                faceBlocks.forEach(b => {
+                    b.y += (Math.random() - 0.5) * 5;
+                    b.x += (Math.random() - 0.5) * 5;
+                });
+                if (Math.random() < 0.2) {
+                    let b = faceBlocks[Math.floor(Math.random() * faceBlocks.length)];
+                    if (b) {
+                        for (let i = 0; i < 5; i++) {
+                            state.particles.push({
+                                x: b.x + b.w / 2, y: b.y + b.h / 2,
+                                vx: (Math.random() - 0.5) * 10, vy: (Math.random() - 0.5) * 10,
+                                size: Math.random() * 5 + 2, life: 1.0, decay: Math.random() * 0.02 + 0.01,
+                                color: currentTheme === 'dark' ? '#ef4444' : '#b91c1c'
+                            });
+                        }
+                        b.active = false;
+                        playBeep(100);
+                    }
+                }
+                if (Date.now() > bs.timer) {
+                    bs.state = 'DEAD';
+                    bs.timer = Date.now() + 2000;
+                }
+            } else if (bs.state === 'DEAD') {
+                if (Date.now() > bs.timer) {
+                    state.gameState = 'GAMECLEAR';
+                }
+            } else {
+
+                if (bs.state === 'EQUIP_TRIGGERED') {
+                    bs.state = 'EQUIPPING';
+                    bs.timer = Date.now() + 2000;
+                    bs.blasterSide = Math.random() < 0.5 ? 'left' : 'right';
+                    
+                    state.balls.forEach(b => {
+                        b.storedVx = b.vx;
+                        b.storedVy = b.vy;
+                    });
+
+                    let bx = bs.blasterSide === 'left' ? 130 : CANVAS_WIDTH - 130;
+                    bs.blasterX = bx;
+                    bs.blasterY = 150;
+                    bs.blasterTargetX = bx;
+                    bs.blasterTargetY = 150;
+                    bs.blasterAngle = Math.PI; // point down initially
+                    bs.blasterTargetAngle = Math.PI;
+                    bs.nozzleX = bs.blasterX;
+                    bs.nozzleY = bs.blasterY;
+                    bs.equipDelay = true;
+
+                    let minX = Math.min(...blasterBlocks.map(b => b.x));
+                    let minY = Math.min(...blasterBlocks.map(b => b.y));
+                    let maxX = Math.max(...blasterBlocks.map(b => b.x)) + 18;
+                    let maxY = Math.max(...blasterBlocks.map(b => b.y)) + 24;
+                    let cx = (minX + maxX) / 2;
+                    let cy = (minY + maxY) / 2;
+
+                    blasterBlocks.forEach((b) => {
+                        b.active = true;
+                        b.relCenterX = b.x - cx;
+                        b.relCenterY = b.y - cy;
+                        // For the gathering spiral animation
+                        b.spiralRadius = 150 + Math.random() * 200;
+                        b.spiralAngle = Math.random() * Math.PI * 2;
+                        b.spiralSpeed = (Math.random() - 0.5) * 0.4;
+                    });
+                }
+
+                // Transform blaster blocks
+                if (bs.state !== 'START_WAIT' && bs.state !== 'EQUIP_TRIGGERED') {
+                    let isAttackPhase = ['EQUIPPING', 'EQUIPPED_WAIT', 'AIMING_A', 'AIMING_B', 'SHOOTING_A', 'SHOOTING_B', 'COUNTER_WINDOW'].includes(bs.state);
+                    if (isAttackPhase) {
+                        let dx = (paddle.x + paddle.w / 2) - bs.nozzleX;
+                        let dy = paddle.y - bs.nozzleY;
+                        bs.blasterTargetAngle = Math.atan2(dy, dx) + Math.PI / 2;
+                    } else if (bs.state === 'IDLE' || bs.state === 'WAITING' || bs.state === 'PREP') {
+                        bs.blasterTargetAngle = Math.PI; // point down
+                    }
+
+                    if (!['COUNTER_FAIL_PREP', 'COUNTER_FAIL_PREP_WAIT', 'THROW_BLASTER'].includes(bs.state)) {
+                        bs.blasterX += (bs.blasterTargetX - bs.blasterX) * 0.1;
+                        bs.blasterY += (bs.blasterTargetY - bs.blasterY) * 0.1;
+                    }
+
+                    let diff = bs.blasterTargetAngle - bs.blasterAngle;
+                    while (diff > Math.PI) diff -= Math.PI * 2;
+                    while (diff < -Math.PI) diff += Math.PI * 2;
+                    if (isAttackPhase) {
+                        let lerpFactor = 1.0;
+                        if (bs.patternSeq === 0) {
+                            if (bs.state === 'EQUIPPING' || bs.state === 'EQUIPPED_WAIT') {
+                                lerpFactor = 0.05;
+                            } else if (bs.state === 'AIMING_A' || bs.state === 'AIMING_B') {
+                                let timeRemaining = bs.timer - Date.now();
+                                if (timeRemaining < 0) timeRemaining = 0;
+                                let maxAim = bs.maxAimTime || 1000;
+                                lerpFactor = 0.05 + 0.95 * (1 - timeRemaining / maxAim);
+                            }
+                        }
+                        bs.blasterAngle += diff * lerpFactor;
+                    } else {
+                        bs.blasterAngle += diff * 0.1;
+                    }
+
+                    let shakeX = 0;
+                    let shakeY = 0;
+                    if (bs.state === 'SHOOTING_A' || bs.state === 'SHOOTING_B' || (bs.state === 'COUNTER_WINDOW' && Date.now() < bs.timer)) {
+                        shakeX = (Math.random() - 0.5) * 5;
+                        shakeY = (Math.random() - 0.5) * 5;
+                    }
+
+                    let cosA = Math.cos(bs.blasterAngle);
+                    let sinA = Math.sin(bs.blasterAngle);
+
+                    let progress = 1;
+                    if (bs.state === 'EQUIPPING' && bs.patternSeq === 0) {
+                        progress = 1 - (bs.timer - Date.now()) / 2000;
+                        if (progress < 0) progress = 0;
+                        if (progress > 1) progress = 1;
+                    }
+                    let ease = 1 - Math.pow(1 - progress, 3); // ease-out cubic
+
+                    blasterBlocks.forEach(b => {
+                        let rx = b.relCenterX;
+                        let ry = b.relCenterY;
+
+                        if (progress < 1 && b.spiralRadius) {
+                            let radius = b.spiralRadius * (1 - ease);
+                            b.spiralAngle += b.spiralSpeed;
+                            rx += Math.cos(b.spiralAngle) * radius;
+                            ry += Math.sin(b.spiralAngle) * radius;
+                        }
+
+                        b.x = bs.blasterX + rx * cosA - ry * sinA + shakeX;
+                        b.y = bs.blasterY + rx * sinA + ry * cosA + shakeY;
+                    });
+
+                    let nozzleRelX = 54;
+                    let nozzleRelY = -108;
+                    bs.nozzleX = bs.blasterX + nozzleRelX * cosA - nozzleRelY * sinA + shakeX;
+                    bs.nozzleY = bs.blasterY + nozzleRelX * sinA + nozzleRelY * cosA + shakeY;
+                }
+
+                if (bs.state === 'WAITING') {
+                    if (Date.now() > bs.timer) {
+                        if (bs.phase === 3 && bs.patternSeq === 0) {
+                            bs.state = 'BARRAGE_UP';
+                            bs.timer = Date.now() + 2000;
+                        } else if (bs.phase >= 2 && bs.patternSeq === 0) {
+                            bs.state = 'LASER_PREP';
+                            bs.timer = Date.now() + 1000;
+                            bs.laserCount = 0;
+                            bs.patternSeq = 1; // So we don't repeat laser next time
+                        } else {
+                            bs.state = 'EQUIP_TRIGGERED';
+                        }
+                    }
+                }
+                else if (bs.state === 'BARRAGE_UP') {
+                    // Shoot massive amounts of bullets upwards
+                    if (Math.random() < 0.3) {
+                        let nozzleX = bs.nozzleX;
+                        let nozzleY = bs.nozzleY;
+                        state.enemyBullets.push({
+                            x: nozzleX + (Math.random() - 0.5) * 50,
+                            y: nozzleY,
+                            w: 16, h: 16,
+                            vx: (Math.random() - 0.5) * 5,
+                            vy: -10 - Math.random() * 5,
+                            type: '403_BARRAGE',
+                            char: ['4', '0', '3'][Math.floor(Math.random() * 3)],
+                            dead: false
+                        });
+                    }
+                    if (Date.now() > bs.timer) {
+                        bs.state = 'BARRAGE_DOWN';
+                        bs.timer = Date.now() + 3000;
+                    }
+                }
+                else if (bs.state === 'BARRAGE_DOWN') {
+                    // Bullets fall down naturally (gravity applied in general bullet update)
+                    if (Date.now() > bs.timer) {
+                        bs.state = 'LASER_PREP';
+                        bs.timer = Date.now() + 1000;
+                        bs.laserCount = 0;
+                    }
+                }
+                else if (bs.state === 'LASER_PREP') {
+                    if (Date.now() > bs.timer) {
+                        bs.state = 'LASER_SHOOT';
+                        bs.timer = Date.now() + 500;
+
+                        let nozzleX = bs.nozzleX;
+                        let nozzleY = bs.nozzleY;
+                        // Fire laser
+                        state.enemyBullets.push({
+                            x: nozzleX, y: nozzleY,
+                            targetX: bs.laserTargetX || paddle.x + paddle.w / 2,
+                            type: 'LASER',
+                            w: 20,
+                            fireStartTime: Date.now(),
+                            dead: false
+                        });
+
+                        // Spawn arc bullets at the targetX on the ground
+                        let groundY = CANVAS_HEIGHT;
+                        let tx = bs.laserTargetX || paddle.x + paddle.w / 2;
+                        for (let i = -1; i <= 1; i++) {
+                            state.enemyBullets.push({
+                                x: tx, y: groundY,
+                                w: 16, h: 16,
+                                vx: i * 3, vy: -10,
+                                type: '404_ARC',
+                                char: ['4', '0', '3'][Math.floor(Math.random() * 3)],
+                                dead: false,
+                                startX: tx, startY: groundY
+                            });
+                        }
+                    } else {
+                        bs.laserTargetX = paddle.x + paddle.w / 2;
+                    }
+                }
+                else if (bs.state === 'LASER_SHOOT') {
+                    if (Date.now() > bs.timer) {
+                        bs.laserCount++;
+                        if (bs.laserCount >= 3) {
+                            bs.state = 'WAITING';
+                            bs.timer = Date.now() + 1000;
+                        } else {
+                            bs.state = 'LASER_PREP';
+                            bs.timer = Date.now() + 1000;
+                        }
+                    }
+                }
+                else if (bs.state === 'EQUIPPING') {
+                    state.balls.forEach(b => { b.vx *= 0.95; b.vy *= 0.95; });
+
+                    if (Date.now() > bs.timer) {
+                        if (bs.equipDelay) {
+                            bs.equipDelay = false;
+                            bs.state = 'EQUIPPED_WAIT';
+                            bs.timer = Date.now() + 1000;
+                            return;
+                        }
+
+                        if (bs.patternSeq === 7) {
+                            bs.state = 'AIMING_A'; // Counter window aiming
+                        } else {
+                            if (bs.phase === 1) {
+                                bs.state = (bs.patternSeq % 2 === 0) ? 'AIMING_A' : 'AIMING_B';
+                            } else {
+                                bs.state = Math.random() < 0.5 ? 'AIMING_A' : 'AIMING_B';
+                            }
+                        }
+
+                        let aimTime = 500;
+                        if (bs.patternSeq === 0) aimTime = 1000;
+                        else if (bs.patternSeq >= 5 && bs.patternSeq <= 7) aimTime = 333;
+                        
+                        if (bs.state === 'AIMING_B') bs.lockedPaddleW = paddle.w + 96;
+                        bs.timer = Date.now() + aimTime;
+                        bs.maxAimTime = aimTime;
+                        bs.lastShotTime = 0;
+                        bs.barrageHit = false;
+                    }
+                }
+                else if (bs.state === 'EQUIPPED_WAIT') {
+                    if (Date.now() > bs.timer) {
+                        if (bs.patternSeq === 7) {
+                            bs.state = 'AIMING_A';
+                        } else {
+                            if (bs.phase === 1) {
+                                bs.state = (bs.patternSeq % 2 === 0) ? 'AIMING_A' : 'AIMING_B';
+                            } else {
+                                bs.state = Math.random() < 0.5 ? 'AIMING_A' : 'AIMING_B';
+                            }
+                        }
+
+                        let aimTime = 500;
+                        if (bs.patternSeq === 0) aimTime = 1000;
+                        else if (bs.patternSeq >= 5 && bs.patternSeq <= 7) aimTime = 333;
+                        
+                        if (bs.state === 'AIMING_B') bs.lockedPaddleW = paddle.w + 96;
+                        bs.timer = Date.now() + aimTime;
+                        bs.maxAimTime = aimTime;
+                        bs.lastShotTime = 0;
+                        bs.barrageHit = false;
+                    }
+                }
+                else if (bs.state === 'AIMING_A') {
+                    let lineAngle = bs.blasterAngle - Math.PI / 2;
+                    let dy = Math.sin(lineAngle);
+                    if (dy > 0.001) {
+                        bs.targetA = bs.nozzleX + Math.cos(lineAngle) * ((CANVAS_HEIGHT - bs.nozzleY) / dy);
+                    } else {
+                        bs.targetA = paddle.x + paddle.w / 2;
+                    }
+                    if (Date.now() > bs.timer) {
+                        if (bs.patternSeq === 7) {
+                            bs.state = 'COUNTER_WINDOW';
+                            bs.timer = Date.now() + 1000;
+                        } else {
+                            bs.state = 'SHOOTING_A';
+                            bs.timer = Date.now() + (bs.patternSeq >= 5 ? 333 : 500);
+                        }
+                        bs.lastShotTime = 0;
+                    }
+                }
+                else if (bs.state === 'SHOOTING_A') {
+                    let lineAngle = bs.blasterAngle - Math.PI / 2;
+                    let dy = Math.sin(lineAngle);
+                    if (dy > 0.001) {
+                        bs.targetA = bs.nozzleX + Math.cos(lineAngle) * ((CANVAS_HEIGHT - bs.nozzleY) / dy);
+                    } else {
+                        bs.targetA = paddle.x + paddle.w / 2;
+                    }
+                    if (Date.now() - bs.lastShotTime > 100) {
+                        bs.lastShotTime = Date.now();
+                        let nozzleX = bs.nozzleX;
+                        let nozzleY = bs.nozzleY;
+                        let angle = lineAngle;
+                        state.enemyBullets.push({
+                            x: nozzleX, y: nozzleY, w: 16, h: 16,
+                            vx: Math.cos(angle) * 12, vy: Math.sin(angle) * 12,
+                            type: '403_BULLET', char: ['4', '0', '3'][Math.floor(Math.random() * 3)], dead: false
+                        });
+                    }
+                    if (Date.now() > bs.timer) {
+                        bs.state = 'EQUIPPING';
+                        bs.timer = Date.now() + (bs.patternSeq === 0 ? 500 : 0);
+                        bs.patternSeq++;
+                    }
+                }
+                else if (bs.state === 'AIMING_B') {
+                    let lineAngle = bs.blasterAngle - Math.PI / 2;
+                    let dy = Math.sin(lineAngle);
+                    if (dy > 0.001) {
+                        let centerAtPaddleY = bs.nozzleX + Math.cos(lineAngle) * ((paddle.y - bs.nozzleY) / dy);
+                        let spread = bs.lockedPaddleW / Math.max(0.1, dy);
+                        let targetL = centerAtPaddleY - spread / 2;
+                        let targetR = centerAtPaddleY + spread / 2;
+                        let yRatio = (CANVAS_HEIGHT - bs.nozzleY) / Math.max(1, paddle.y - bs.nozzleY);
+                        bs.targetBL = bs.nozzleX + (targetL - bs.nozzleX) * yRatio;
+                        bs.targetBR = bs.nozzleX + (targetR - bs.nozzleX) * yRatio;
+                    }
+                    if (Date.now() > bs.timer) {
+                        bs.state = 'SHOOTING_B';
+                        bs.timer = Date.now() + (bs.patternSeq >= 5 ? 333 : 500);
+                        bs.lastShotTime = 0;
+                    }
+                }
+                else if (bs.state === 'SHOOTING_B') {
+                    let lineAngle = bs.blasterAngle - Math.PI / 2;
+                    let dy = Math.sin(lineAngle);
+                    if (dy > 0.001) {
+                        let centerAtPaddleY = bs.nozzleX + Math.cos(lineAngle) * ((paddle.y - bs.nozzleY) / dy);
+                        let spread = bs.lockedPaddleW / Math.max(0.1, dy);
+                        let targetL = centerAtPaddleY - spread / 2;
+                        let targetR = centerAtPaddleY + spread / 2;
+                        let yRatio = (CANVAS_HEIGHT - bs.nozzleY) / Math.max(1, paddle.y - bs.nozzleY);
+                        bs.targetBL = bs.nozzleX + (targetL - bs.nozzleX) * yRatio;
+                        bs.targetBR = bs.nozzleX + (targetR - bs.nozzleX) * yRatio;
+                    }
+                    if (Date.now() - bs.lastShotTime > 100) {
+                        bs.lastShotTime = Date.now();
+                        let nozzleX = bs.nozzleX;
+                        let nozzleY = bs.nozzleY;
+                        let angleL = Math.atan2(CANVAS_HEIGHT - nozzleY, bs.targetBL - nozzleX);
+                        let angleR = Math.atan2(CANVAS_HEIGHT - nozzleY, bs.targetBR - nozzleX);
+                        let shotId = Date.now() + Math.random();
+                        state.enemyBullets.push({
+                            x: nozzleX, y: nozzleY, w: 16, h: 16,
+                            vx: Math.cos(angleL) * 12, vy: Math.sin(angleL) * 12,
+                            type: '403_BULLET', char: ['4', '0', '3'][Math.floor(Math.random() * 3)], dead: false, shotId
+                        });
+                        state.enemyBullets.push({
+                            x: nozzleX, y: nozzleY, w: 16, h: 16,
+                            vx: Math.cos(angleR) * 12, vy: Math.sin(angleR) * 12,
+                            type: '403_BULLET', char: ['4', '0', '3'][Math.floor(Math.random() * 3)], dead: false, shotId
+                        });
+                    }
+                    if (Date.now() > bs.timer) {
+                        bs.state = 'EQUIPPING';
+                        bs.timer = Date.now() + (bs.patternSeq === 0 ? 500 : 0);
+                        bs.patternSeq++;
+                    }
+                }
+                else if (bs.state === 'COUNTER_WINDOW') {
+                    bs.targetA = paddle.x + paddle.w / 2;
+                    if (Date.now() < bs.timer && Date.now() - bs.lastShotTime > 100) {
+                        bs.lastShotTime = Date.now();
+                        let nozzleX = bs.nozzleX;
+                        let nozzleY = bs.nozzleY;
+                        let angle = Math.atan2(CANVAS_HEIGHT - nozzleY, bs.targetA - nozzleX);
+                        state.enemyBullets.push({
+                            x: nozzleX, y: nozzleY, w: 16, h: 16,
+                            vx: Math.cos(angle) * 12, vy: Math.sin(angle) * 12,
+                            type: '403_COUNTER_BULLET', char: ['4', '0'][Math.floor(Math.random() * 2)], dead: false
+                        });
+                    }
+                    
+                    if (Date.now() > bs.timer) {
+                        // Counter Fail
+                        bs.state = 'COUNTER_FAIL_PREP';
+                        bs.timer = Date.now() + 1000;
+                        bs.patternSeq = 0;
+                        bs.failStartAngle = bs.blasterAngle;
+                        bs.failStartX = bs.blasterX;
+                        bs.failStartY = bs.blasterY;
+                        bs.blasterHitPaddle = false;
+                    }
+                }
+                else if (bs.state === 'COUNTER_FAIL_PREP') {
+                    // Blaster rotates 1 rotation, moves slightly away from player, trembles, flashes red
+                    let progress = 1 - (bs.timer - Date.now()) / 1000;
+                    if (progress < 0) progress = 0; if (progress > 1) progress = 1;
+                    
+                    bs.blasterAngle = bs.failStartAngle + progress * Math.PI * 2;
+                    let awayDx = bs.failStartX - (paddle.x + paddle.w / 2);
+                    let awayDy = bs.failStartY - paddle.y;
+                    let len = Math.sqrt(awayDx * awayDx + awayDy * awayDy) || 1;
+                    bs.blasterX = bs.failStartX + (awayDx / len) * (progress * 50);
+                        bs.blasterY = bs.failStartY + (awayDy / len) * (progress * 50);
+                    
+                    // Tremble
+                    bs.blasterX += (Math.random() - 0.5) * 5;
+                    bs.blasterY += (Math.random() - 0.5) * 5;
+                    
+                    if (Date.now() > bs.timer) {
+                        bs.state = 'COUNTER_FAIL_PREP_WAIT';
+                        bs.timer = Date.now() + 1000;
+                        bs.throwTargetX = paddle.x + paddle.w / 2;
+                        bs.throwTargetY = paddle.y;
+                    }
+                }
+                else if (bs.state === 'COUNTER_FAIL_PREP_WAIT') {
+                    if (Date.now() > bs.timer) {
+                        bs.state = 'THROW_BLASTER';
+                        let dx = bs.throwTargetX - bs.blasterX;
+                        let dy = bs.throwTargetY - bs.blasterY;
+                        let len = Math.sqrt(dx * dx + dy * dy) || 1;
+                        bs.throwVx = (dx / len) * 20;
+                        bs.throwVy = (dy / len) * 20;
+                    }
+                }
+                else if (bs.state === 'THROW_BLASTER') {
+                    bs.blasterX += bs.throwVx;
+                    bs.blasterY += bs.throwVy;
+                    bs.blasterAngle += 0.5; // rapid spin
+                    
+                    // Hit check with paddle
+                    if (!bs.blasterHitPaddle && !paddle.destroyed && Date.now() > (paddle.invincibleEndTime || 0)) {
+                        let hitBlock = false;
+                        for (let blk of blasterBlocks) {
+                            if (!blk.active) continue;
+                            let br = { x: blk.x, y: blk.y, w: blk.w, h: blk.h };
+                            let pr = { x: paddle.x, y: paddle.y, w: paddle.w, h: paddle.h };
+                            if (rectIntersect(br, pr)) {
+                                hitBlock = true;
+                                break;
+                            }
+                        }
+                        
+                        if (hitBlock) {
+                            bs.blasterHitPaddle = true;
+                            if (Date.now() < paddle.foundEndTime) {
+                                paddle.destroyed = true;
+                                spawnPaddleParticles();
+                            } else {
+                                paddle.ndEndTime = Date.now() + 5000;
+                                paddle.foundEndTime = Date.now() + 10000;
+                            }
+                            paddle.invincibleEndTime = Date.now() + 1000;
+                        }
+                    }
+                    
+                    // Check if offscreen
+                    if (bs.blasterX < -200 || bs.blasterX > CANVAS_WIDTH + 200 || bs.blasterY < -200 || bs.blasterY > CANVAS_HEIGHT + 200) {
+                        if (!bs.offScreenTime) bs.offScreenTime = Date.now();
+                        if (Date.now() > bs.offScreenTime + 500) {
+                            bs.state = 'STUNNED';
+                            bs.timer = Date.now() + 10000;
+                            blasterBlocks.forEach(b => { b.active = false; });
+                            state.balls.forEach(b => {
+                                b.isRecovering = true;
+                                b.recoveryStartTime = Date.now();
+                                b.vx = b.storedVx || (Math.random() - 0.5) * 5;
+                                b.vy = b.storedVy || 5;
+                            });
+                        }
+                    }
+                }
+                else if (bs.state === 'STUNNED') {
+                    // Face is vulnerable
+                    if (Date.now() > bs.timer) {
+                        bs.state = 'TELEGRAPH_SUMMON';
+                        bs.timer = Date.now() + 1500;
+                        bs.counterSuccessTime = 0;
+                        bs.counterHitCount = 0;
+                    }
+                }
+                else if (bs.state === 'TELEGRAPH_SUMMON') {
+                    bs.face.yOffset = Math.sin(Date.now() / 50) * 10;
+                    if (Date.now() > bs.timer) {
+                        bs.state = 'SUMMONING';
+                        bs.timer = Date.now() + 2000;
+                        bs.face.yOffset = 0;
+                    }
+                }
+                
+                // Check counter success globally for these states
+                if (['COUNTER_WINDOW', 'COUNTER_FAIL_PREP', 'COUNTER_FAIL_PREP_WAIT', 'THROW_BLASTER'].includes(bs.state)) {
+                    if (bs.counterSuccessTime && Date.now() - bs.counterSuccessTime > 750) {
+                        // Counter Success
+                        bs.state = 'STUNNED';
+                        bs.timer = Date.now() + 10000;
+                        bs.patternSeq = 0;
+                    }
+                    
+                    if (['COUNTER_FAIL_PREP', 'COUNTER_FAIL_PREP_WAIT', 'THROW_BLASTER'].includes(bs.state)) {
+                        let flash = Math.floor(Date.now() / 250) % 2 === 0;
+                        blasterBlocks.forEach(b => {
+                            b.color = flash ? '#ef4444' : undefined;
+                        });
+                    }
+                }
+
+                else if (bs.state === 'SUMMONING') {
+                    if (!bs.summoned) {
+                        bs.summoned = true;
+                        let count = bs.phase === 3 ? 3 : 2;
+                        for (let i = 0; i < count; i++) {
+                            let type;
+                            if (bs.phase === 3 && i === 2) {
+                                type = ['NOT', 'FOUND', 'ERROR'][Math.floor(Math.random() * 3)];
+                            } else {
+                                type = ['DENIED', 'ACCESS', 'FORBIDDEN'][Math.floor(Math.random() * 3)];
+                            }
+                            let enData = state.enemiesData[type];
+                            let eX = 100 + Math.random() * (CANVAS_WIDTH - 200);
+                            let eY = 100 + Math.random() * 150;
+                            let hp = bs.state === 'STUNNED' ? 1 : enData.hp; // Stunned means counter succeeded
+                            state.enemies.push({
+                                x: eX, y: eY, w: 32, h: 32,
+                                type: type, hp: hp, maxHp: enData.hp, dead: false, text: type,
+                                lastAttackTime: Date.now() + Math.random() * 5000,
+                                lastShootTime: Date.now() + Math.random() * 5000,
+                                actionState: 'IDLE',
+                                vx: (Math.random() - 0.5) * 4,
+                                vy: 0,
+                                targetX: paddle.x + paddle.w / 2
+                            });
+                        }
+                    }
+                    if (Date.now() > bs.timer) {
+                        bs.state = 'FACE_ATTACK';
+                        bs.timer = Date.now() + 30000;
+                        bs.summoned = false;
+                        bs.face.timer = Date.now() + 3000;
+                    }
+                }
+                else if (bs.state === 'FACE_ATTACK') {
+                    if (state.enemies.length === 0) {
+                        bs.state = 'WAITING';
+                        bs.timer = Date.now() + 2000;
+                    } else if (Date.now() > bs.timer) {
+                        bs.state = 'WAITING';
+                        bs.timer = Date.now() + 2000;
+                    } else {
+                        // Face attacks
+                        if (bs.face.state === 'IDLE') {
+                            if (Date.now() > bs.face.timer) {
+                                bs.face.state = 'PREP';
+                                bs.face.timer = Date.now() + 1000 + Math.random() * 1000;
+                            }
+                        } else if (bs.face.state === 'PREP') {
+                            bs.face.targetX = paddle.x + paddle.w / 2 - CANVAS_WIDTH / 2;
+                            bs.face.xOffset += (bs.face.targetX - bs.face.xOffset) * 0.05;
+                            bs.face.yOffset = Math.sin(Date.now() / 50) * 5 - 20;
+                            if (Date.now() > bs.face.timer) {
+                                bs.face.state = 'WAIT_DROP';
+                                bs.face.timer = Date.now() + 500;
+                            }
+                        } else if (bs.face.state === 'WAIT_DROP') {
+                            if (Date.now() > bs.face.timer) {
+                                bs.face.state = 'DROP';
+                                bs.face.dropVy = 0;
+                                bs.face.hitPaddle = false;
+                            }
+                        } else if (bs.face.state === 'DROP') {
+                            bs.face.dropVy += 1;
+                            bs.face.yOffset += bs.face.dropVy;
+
+                            if (!bs.face.hitPaddle && !paddle.destroyed && Date.now() > (paddle.invincibleEndTime || 0)) {
+                                let pr = { x: paddle.x, y: paddle.y, w: paddle.w, h: paddle.h };
+                                let faceBlocks = state.blocks.filter(b => b.part === 'face' && b.active);
+                                for (let b of faceBlocks) {
+                                    let bx = b.baseX + bs.face.xOffset;
+                                    let by = b.baseY + bs.face.yOffset;
+                                    if (rectIntersect(pr, { x: bx, y: by, w: b.w, h: b.h })) {
+                                        paddle.destroyed = true;
+                                        spawnPaddleParticles();
+                                        bs.face.hitPaddle = true;
+                                        break;
+                                    }
+                                }
+                            }
+
+                            if (bs.face.yOffset > CANVAS_HEIGHT - 300) {
+                                bs.face.state = 'WAIT_RETURN';
+                                bs.face.timer = Date.now() + 1000;
+                                // Spawn arc bullets
+                                for (let i = 0; i < 6; i++) {
+                                    state.enemyBullets.push({
+                                        x: CANVAS_WIDTH / 2 + bs.face.xOffset,
+                                        y: CANVAS_HEIGHT - 100,
+                                        w: 16, h: 16,
+                                        vx: (Math.random() - 0.5) * 10,
+                                        vy: -10 - Math.random() * 5,
+                                        type: '404_ARC',
+                                        char: ['4', '0', '3'][Math.floor(Math.random() * 3)],
+                                        dead: false
+                                    });
+                                }
+                                playBeep(200);
+                            }
+                        } else if (bs.face.state === 'WAIT_RETURN') {
+                            if (Date.now() > bs.face.timer) {
+                                bs.face.state = 'RETURN';
+                            }
+                        } else if (bs.face.state === 'RETURN') {
+                            bs.face.yOffset -= 3 * state.globalSpeedMult;
+                            bs.face.xOffset *= 0.9;
+                            if (bs.face.yOffset <= 0) {
+                                bs.face.yOffset = 0;
+                                bs.face.xOffset = 0;
+                                bs.face.state = 'IDLE';
+                                bs.face.timer = Date.now() + 3000 + Math.random() * 3000;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
 
         if (state.balls.length === 0 && state.gameState === 'PLAYING') {
             state.globalSpeedMult = 1.1 + (state.globalSpeedMult - 1.1) / 2.0;

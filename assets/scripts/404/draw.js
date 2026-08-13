@@ -124,18 +124,6 @@ export const draw = (ctx) => {
             });
         }
 
-        if (state.currentStage >= 8) {
-            // Cacti
-            ctx.fillStyle = currentTheme === 'dark' ? '#14532d' : '#22c55e';
-            state.cacti.forEach(c => {
-                ctx.fillRect(c.x, c.y, 20, c.h); // Main trunk
-                ctx.fillRect(c.x - 20, c.y + 20, 20, 10); // Left arm
-                ctx.fillRect(c.x - 20, c.y + 10, 10, 20); // Left arm up
-                ctx.fillRect(c.x + 20, c.y + 40, 20, 10); // Right arm
-                ctx.fillRect(c.x + 30, c.y + 20, 10, 30); // Right arm up
-            });
-        }
-
         if (state.currentStage === 9) {
             // Dot art pyramid in the background
             ctx.fillStyle = currentTheme === 'dark' ? '#78350f' : '#fcd34d';
@@ -153,6 +141,18 @@ export const draw = (ctx) => {
                     ctx.fillRect(x + j, y, 13, layerH - 2);
                 }
             }
+        }
+
+        if (state.currentStage >= 8) {
+            // Cacti
+            ctx.fillStyle = currentTheme === 'dark' ? '#14532d' : '#22c55e';
+            state.cacti.forEach(c => {
+                ctx.fillRect(c.x, c.y, 20, c.h); // Main trunk
+                ctx.fillRect(c.x - 20, c.y + 20, 20, 10); // Left arm
+                ctx.fillRect(c.x - 20, c.y + 10, 10, 20); // Left arm up
+                ctx.fillRect(c.x + 20, c.y + 40, 20, 10); // Right arm
+                ctx.fillRect(c.x + 30, c.y + 20, 10, 30); // Right arm up
+            });
         }
     }
 
@@ -185,6 +185,29 @@ export const draw = (ctx) => {
                         bColor = '#facc15';
                     }
                 }
+            } // Close state.currentStage === 5
+
+            if (state.currentStage === 10 && bl.part) {
+                let bs = state.boss403State;
+                if (bl.part === 'face') {
+                    bx = bl.baseX + bs.face.xOffset;
+                    by = bl.baseY + bs.face.yOffset;
+                    if (['WAIT_DROP', 'DROP', 'WAIT_RETURN', 'RETURN'].includes(bs.face.state)) {
+                        if (Math.floor(Date.now() / 150) % 2 === 0) {
+                            bColor = '#ef4444';
+                        }
+                    }
+                } else if (bl.part === 'blaster') {
+                    // Blaster has its own x/y updated in update.js
+                    if (bl.color) bColor = bl.color;
+
+                    if (bs.state === 'EQUIPPING') {
+                        // Blink semi-transparent
+                        if (Math.floor(Date.now() / 150) % 2 === 0) {
+                            ctx.globalAlpha = 0.3;
+                        }
+                    }
+                }
             }
 
             bl.x = bx;
@@ -199,6 +222,7 @@ export const draw = (ctx) => {
                 ctx.restore();
             } else {
                 ctx.fillText(bl.char, bx + bl.w / 2, by + bl.h / 2);
+                ctx.globalAlpha = 1.0;
             }
         }
     });
@@ -212,32 +236,118 @@ export const draw = (ctx) => {
     state.particles.forEach(p => {
         ctx.fillStyle = p.color;
         ctx.globalAlpha = Math.max(0, p.life / p.maxLife);
-        ctx.fillRect(p.x, p.y, p.size, p.size);
+        if (p.char) {
+            ctx.font = '20px "Press Start 2P"';
+            ctx.fillText(p.char, p.x, p.y);
+        } else {
+            ctx.fillRect(p.x, p.y, p.size, p.size);
+        }
         ctx.globalAlpha = 1.0;
     });
 
     ctx.font = '20px "Press Start 2P"';
     state.balls.forEach(b => {
         let bColor = b.color || textColor;
+        
+        let speed = Math.sqrt(b.vx * b.vx + b.vy * b.vy);
+        if (b.isRecovering || speed < 0.1) {
+            ctx.globalAlpha = (Math.floor(Date.now() / 500) % 2 === 0) ? 0.3 : 1.0;
+        }
+
         if (b.isEnhanced && Date.now() < state.paddle.nBuffEndTime - 1000) {
             let blinkColor = currentTheme === 'dark' ? '#38bdf8' : '#0284c7';
             bColor = (Math.floor(Date.now() / 250) % 2 === 0) ? blinkColor : textColor;
         }
         ctx.fillStyle = bColor;
         ctx.fillText(b.char, b.x, b.y);
+        ctx.globalAlpha = 1.0;
     });
 
+
+    if (state.currentStage === 10 && state.boss403State.active) {
+        let bs = state.boss403State;
+        let nozzleX = bs.nozzleX;
+        let nozzleY = bs.nozzleY;
+
+        ctx.save();
+        ctx.lineWidth = 2;
+        if (bs.state === 'AIMING_A' || bs.state === 'AIMING_B') {
+            let timeRemaining = bs.timer - Date.now();
+            let maxAimTime = bs.maxAimTime || 500;
+            if (timeRemaining < 0) timeRemaining = 0;
+            if (timeRemaining > maxAimTime) timeRemaining = maxAimTime;
+            let redRatio = 1 - (timeRemaining / maxAimTime);
+
+            ctx.setLineDash([5, 5]);
+            ctx.lineDashOffset = -(Date.now() % 1000) * 0.1;
+            ctx.beginPath();
+
+            if (bs.state === 'AIMING_A') {
+                ctx.moveTo(nozzleX, nozzleY);
+                ctx.lineTo(bs.targetA, CANVAS_HEIGHT);
+            } else {
+                ctx.moveTo(nozzleX, nozzleY);
+                ctx.lineTo(bs.targetBL, CANVAS_HEIGHT);
+                ctx.moveTo(nozzleX, nozzleY);
+                ctx.lineTo(bs.targetBR, CANVAS_HEIGHT);
+            }
+
+            // Draw base color
+            ctx.strokeStyle = textColor;
+            ctx.stroke();
+
+            // Draw red overlay
+            if (redRatio > 0) {
+                ctx.save();
+                ctx.globalAlpha = redRatio;
+                ctx.strokeStyle = '#ef4444'; // Red
+                ctx.stroke();
+                ctx.restore();
+            }
+        }
+
+        // Paddle destruction purple laser
+        if (bs.destroyingBall && state.balls.length > 0) {
+            let b = state.balls[0];
+            ctx.setLineDash([]);
+            ctx.lineWidth = 4;
+            ctx.strokeStyle = '#a855f7'; // Purple
+            ctx.beginPath();
+            ctx.moveTo(nozzleX, nozzleY);
+            ctx.lineTo(b.x, b.y);
+            ctx.stroke();
+
+            // Draw explosion at ball
+            for (let i = 0; i < 3; i++) {
+                ctx.beginPath();
+                ctx.arc(b.x + (Math.random() - 0.5) * 10, b.y + (Math.random() - 0.5) * 10, Math.random() * 20 + 10, 0, Math.PI * 2);
+                ctx.fillStyle = '#a855f7';
+                ctx.fill();
+            }
+        }
+
+        ctx.restore();
+    }
+
     ctx.font = '28px "Press Start 2P"';
-    let pColor = textColor;
-    let isPenaltyBlink = Date.now() < state.paddle.ndEndTime || Date.now() < state.paddle.foundEndTime;
+    let activeColors = [];
     if (Date.now() < state.paddle.nBuffEndTime - 1000) {
-        let blinkColor = currentTheme === 'dark' ? '#38bdf8' : '#0284c7';
-        pColor = (Math.floor(Date.now() / 250) % 2 === 0) ? blinkColor : textColor;
-    } else if (Date.now() < (state.paddle.mudEndTime || 0)) {
-        let mudColor = currentTheme === 'dark' ? '#78350f' : '#451a03'; // Dark brown
-        pColor = (Math.floor(Date.now() / 250) % 2 === 0) ? mudColor : textColor;
-    } else if (isPenaltyBlink && Math.floor(Date.now() / 250) % 2 === 0) {
-        pColor = '#ef4444';
+        activeColors.push(currentTheme === 'dark' ? '#38bdf8' : '#0284c7'); // Cyan
+    }
+    if (Date.now() < (state.paddle.mudEndTime || 0)) {
+        activeColors.push(currentTheme === 'dark' ? '#78350f' : '#451a03'); // Brown
+    }
+    if (Date.now() < state.paddle.ndEndTime || Date.now() < state.paddle.foundEndTime) {
+        activeColors.push('#ef4444'); // Red
+    }
+
+    let pColor = textColor;
+    if (activeColors.length > 0) {
+        let tick = Math.floor(Date.now() / 250);
+        if (tick % 2 === 0) {
+            let cycleIndex = Math.floor(tick / 2) % activeColors.length;
+            pColor = activeColors[cycleIndex];
+        }
     }
 
     if (!state.paddle.destroyed) {
@@ -266,6 +376,7 @@ export const draw = (ctx) => {
 
         state.enemies.forEach(en => {
             if (en.actionState === 'AIMING' || en.actionState === 'LOCKING') {
+                ctx.globalAlpha = 1.0;
                 ctx.lineDashOffset = -(Date.now() % 1000) * 0.1;
                 if (en.actionState === 'AIMING') {
                     ctx.strokeStyle = '#ffffff';
@@ -366,6 +477,16 @@ export const draw = (ctx) => {
             else if (bull.type === 'MUD') bText = "mud";
             else if (bull.type === 'MUD_SHRAPNEL') bText = bull.char;
 
+            else if (bull.type.startsWith('403_')) {
+                bText = bull.char;
+                if (bull.type === '403_BARRAGE') {
+                    if (state.boss403State.state === 'BARRAGE_UP' || state.boss403State.state === 'BARRAGE_DOWN') {
+                        ctx.fillStyle = (Math.floor(Date.now() / 150) % 2 === 0) ? '#a855f7' : textColor;
+                    }
+                }
+            }
+
+
             let bColor = textColor;
             if (bull.type === 'ERROR_BULLET') {
                 bColor = (Math.floor(Date.now() / 100) % 2 === 0) ? '#f97316' : textColor;
@@ -376,6 +497,10 @@ export const draw = (ctx) => {
                 bColor = (Math.floor(Date.now() / 500) % 2 === 0) ? mudColor : textColor;
             } else if (bull.type === '404NOTFOUND_BASE' || bull.type === '404NOTFOUND_SHRAPNEL') {
                 bColor = (Math.floor(Date.now() / 100) % 2 === 0) ? '#a855f7' : textColor;
+            } else if (bull.type === '403_COUNTER_BULLET') {
+                bColor = '#facc15'; // Yellow
+            } else if (bull.type === '403_COUNTER_RETURN') {
+                bColor = '#ffffff'; // White
             } else {
                 bColor = (Math.floor(Date.now() / 250) % 2 === 0) ? '#ef4444' : textColor;
             }
