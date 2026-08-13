@@ -32,8 +32,10 @@ export const update = () => {
     if (paddle.x + paddle.w > CANVAS_WIDTH) paddle.x = CANVAS_WIDTH - paddle.w;
 
     if (state.gameState === 'TUTORIAL' || state.gameState === 'READY') {
-        if (state.keys.left) paddle.x -= 8 * state.globalSpeedMult;
-        if (state.keys.right) paddle.x += 8 * state.globalSpeedMult;
+        let spd = 8 * state.globalSpeedMult;
+        if (Date.now() < paddle.mudEndTime) spd *= 0.5;
+        if (state.keys.left) paddle.x -= spd;
+        if (state.keys.right) paddle.x += spd;
         if (paddle.x < 0) paddle.x = 0;
         if (paddle.x > CANVAS_WIDTH - paddle.w) paddle.x = CANVAS_WIDTH - paddle.w;
 
@@ -52,8 +54,10 @@ export const update = () => {
         });
         state.particles = state.particles.filter(p => p.life > 0);
 
-        if (state.keys.left) paddle.x -= 8 * state.globalSpeedMult;
-        if (state.keys.right) paddle.x += 8 * state.globalSpeedMult;
+        let spd = 8 * state.globalSpeedMult;
+        if (Date.now() < paddle.mudEndTime) spd *= 0.5;
+        if (state.keys.left) paddle.x -= spd;
+        if (state.keys.right) paddle.x += spd;
         if (paddle.x < 0) paddle.x = 0;
         if (paddle.x > CANVAS_WIDTH - paddle.w) paddle.x = CANVAS_WIDTH - paddle.w;
 
@@ -362,32 +366,63 @@ export const update = () => {
 
         state.items = state.items.filter(i => !i.caught && i.y < CANVAS_HEIGHT + 50);
 
+        if (state.currentStage === 7) {
+            if (Math.random() < 0.015) {
+                state.tumbleweeds.push({
+                    x: CANVAS_WIDTH + 50,
+                    y: CANVAS_HEIGHT - 100 - 10,
+                    vx: -2 - Math.random() * 2,
+                    rotation: 0
+                });
+            }
+        }
+        
+        state.tumbleweeds.forEach(t => {
+            t.x += t.vx * state.globalSpeedMult;
+            t.rotation -= 0.05 * state.globalSpeedMult;
+        });
+        state.tumbleweeds = state.tumbleweeds.filter(t => t.x > -50);
+
+        if (state.currentStage >= 8 && state.cacti.length === 0) {
+            // Generate 3 random cacti
+            for (let i = 0; i < 3; i++) {
+                state.cacti.push({
+                    x: 100 + Math.random() * (CANVAS_WIDTH - 200),
+                    y: CANVAS_HEIGHT - 100 - (60 + Math.random() * 40),
+                    h: 60 + Math.random() * 40
+                });
+            }
+        }
+
         if (state.currentStage >= 2) {
-            if (state.currentStage <= 4) {
-                let spawnInterval = state.currentStage === 4 ? 10000 : (state.currentStage === 3 ? 15000 : 20000);
-                let maxEnemies = state.currentStage === 4 ? 6 : (state.currentStage === 3 ? 4 : 2);
+            if (state.currentStage !== 5 && state.currentStage <= 10) {
+                let spawnInterval = state.currentMapData ? state.currentMapData.spawnInterval : 10000;
+                let maxEnemies = 2;
+                if (state.currentStage === 3) maxEnemies = 4;
+                if (state.currentStage >= 4) maxEnemies = 6;
 
                 if (Date.now() - state.lastEnemySpawnTime > spawnInterval && state.enemies.length < maxEnemies) {
                     state.enemySpawnCount++;
-                    let isFound = false;
-                    let isDrop = false;
-
-                    if (state.currentStage === 4) {
-                        if (state.enemySpawnCount % 4 === 0) isDrop = true;
-                        else if (state.enemySpawnCount % 3 === 0) isFound = true;
-                    } else if (state.currentStage === 3) {
-                        if (state.enemySpawnCount % 3 === 0) isFound = true;
+                    
+                    let possibleEnemies = Object.keys(state.enemiesData).filter(enType => {
+                        let data = state.enemiesData[enType];
+                        return data.stages && data.stages.includes(state.currentStage);
+                    });
+                    
+                    let enType = 'NOT';
+                    if (possibleEnemies.length > 0) {
+                        let pool = [];
+                        let mapName = state.currentMapData ? state.currentMapData.name : '';
+                        possibleEnemies.forEach(en => {
+                            let weight = (en === mapName) ? 2 : 1;
+                            for (let i = 0; i < weight; i++) pool.push(en);
+                        });
+                        enType = pool[Math.floor(Math.random() * pool.length)];
                     }
 
-                    let enType = isDrop ? 'DROP' : (isFound ? 'FOUND' : 'NOT');
-                    
-                    // Fallback width/hp if json is missing
-                    let enData = state.enemiesData[enType] || {};
-                    let enW = isDrop ? 128 : (isFound ? 160 : 96); // default
-                    let enHp = isDrop ? 4 : (isFound ? 5 : 3); // default
-                    
-                    // Not using enData for stats in this code yet, but we could!
-                    // I will stick to original logic to ensure it doesn't break, JSON was meant to be reference.
+                    let enData = state.enemiesData[enType] || { name: 'NOT' };
+                    let enW = enData.name.length * 32;
+                    let enHp = enData.name.length;
                     
                     state.enemies.push({
                         x: Math.random() * (CANVAS_WIDTH - enW) + (enW / 2),
@@ -398,76 +433,133 @@ export const update = () => {
                         hp: enHp,
                         type: enType,
                         lastShootTime: Date.now(),
-                        lastHitTime: 0
+                        lastHitTime: 0,
+                        actionState: 'IDLE'
                     });
                     state.lastEnemySpawnTime = Date.now();
                 }
             }
 
             state.enemies.forEach(en => {
-                en.x += en.vx * state.globalSpeedMult;
-                if (en.x - en.w / 2 < 0) {
-                    en.x = en.w / 2;
-                    en.vx *= -1;
-                    en.y += 20;
-                } else if (en.x + en.w / 2 > CANVAS_WIDTH) {
-                    en.x = CANVAS_WIDTH - en.w / 2;
-                    en.vx *= -1;
-                    en.y += 20;
+                if (!en.actionState) en.actionState = 'IDLE';
+
+                if (en.actionState === 'IDLE') {
+                    en.x += en.vx * state.globalSpeedMult;
+                    if (en.x - en.w / 2 < 0) {
+                        en.x = en.w / 2;
+                        en.vx *= -1;
+                        en.y += 20;
+                    } else if (en.x + en.w / 2 > CANVAS_WIDTH) {
+                        en.x = CANVAS_WIDTH - en.w / 2;
+                        en.vx *= -1;
+                        en.y += 20;
+                    }
                 }
 
-                let shootInterval = en.type === 'DROP' ? 8000 + Math.random() * 4000 : (en.type === 'FOUND' ? 5000 + Math.random() * 2000 : 3000 + Math.random() * 2000);
-                if (Date.now() - en.lastShootTime > shootInterval) {
-                    if (en.type === 'DROP') {
-                        state.enemyBullets.push({
-                            x: en.x,
-                            y: en.y + 20,
-                            startY: en.y + 20,
-                            w: 16, h: 48,
-                            vx: 0,
-                            vy: 2,
-                            type: 'DROP_BULLET',
-                            dead: false,
-                            exploded: false
-                        });
-                    } else if (en.type === 'FOUND') {
-                        let targetX = paddle.x + paddle.w / 2;
-                        let targetY = paddle.y + paddle.h / 2;
-                        let dx = targetX - en.x;
-                        let dy = targetY - (en.y + 20);
-                        let dist = Math.sqrt(dx * dx + dy * dy);
-                        let speed = 4;
-                        state.enemyBullets.push({
-                            x: en.x,
-                            y: en.y + 20,
-                            w: 16, h: 48,
-                            vx: (dx / dist) * speed,
-                            vy: (dy / dist) * speed,
-                            type: 'FOUND',
-                            dead: false
-                        });
-                    } else {
-                        state.enemyBullets.push({
-                            x: en.x,
-                            y: en.y + 20,
-                            w: 16, h: 48,
-                            vx: 0,
-                            vy: 4,
-                            type: 'NOT',
-                            dead: false
-                        });
+                let enData = state.enemiesData[en.type] || { attackInterval: [3000, 5000] };
+                let intervalDiff = enData.attackInterval[1] - enData.attackInterval[0];
+                let shootInterval = enData.attackInterval[0] + Math.random() * intervalDiff;
+
+                if (en.actionState === 'IDLE') {
+                    if (Date.now() - en.lastShootTime > shootInterval) {
+                        if (en.type === 'DENIED' || en.type === 'ACCESS') {
+                            en.actionState = 'AIMING';
+                            en.actionStartTime = Date.now();
+                            if (en.type === 'ACCESS') en.aimTargetX = paddle.x + paddle.w / 2;
+                            else en.aimTargetX = en.x;
+                        } else {
+                            if (en.type === 'ERROR') {
+                                state.enemyBullets.push({
+                                    x: en.x, y: en.y + 20, startY: en.y + 20,
+                                    w: 16, h: 48, vx: 0, vy: 2,
+                                    type: 'ERROR_BULLET', dead: false, exploded: false
+                                });
+                            } else if (en.type === 'FOUND') {
+                                let targetX = paddle.x + paddle.w / 2;
+                                let targetY = paddle.y + paddle.h / 2;
+                                let dx = targetX - en.x; let dy = targetY - (en.y + 20);
+                                let dist = Math.sqrt(dx * dx + dy * dy); let speed = 4;
+                                state.enemyBullets.push({
+                                    x: en.x, y: en.y + 20, w: 16, h: 48,
+                                    vx: (dx / dist) * speed, vy: (dy / dist) * speed,
+                                    type: 'FOUND', dead: false
+                                });
+                            } else if (en.type === 'FORBIDDEN') {
+                                state.enemyBullets.push({
+                                    x: en.x, y: en.y + 20, w: 16, h: 16,
+                                    vx: 0, vy: 0, type: 'MUD', dead: false
+                                });
+                            } else {
+                                state.enemyBullets.push({
+                                    x: en.x, y: en.y + 20, w: 16, h: 48,
+                                    vx: 0, vy: 4, type: 'NOT', dead: false
+                                });
+                            }
+                            en.lastShootTime = Date.now();
+                        }
                     }
-                    en.lastShootTime = Date.now();
+                } else if (en.actionState === 'AIMING') {
+                    if (Date.now() - en.actionStartTime > 500) {
+                        en.actionState = 'LOCKING';
+                        en.actionStartTime = Date.now();
+                    }
+                } else if (en.actionState === 'LOCKING') {
+                    if (Date.now() - en.actionStartTime > 500) {
+                        en.actionState = 'FIRING';
+                        en.actionStartTime = Date.now();
+                        state.enemyBullets.push({
+                            x: en.x, y: en.y + 20,
+                            targetX: en.aimTargetX,
+                            w: 20, h: CANVAS_HEIGHT,
+                            vx: 0, vy: 0, type: 'LASER',
+                            fireStartTime: Date.now(), dead: false
+                        });
+                        playBeep(800);
+                    }
+                } else if (en.actionState === 'FIRING') {
+                    if (Date.now() - en.actionStartTime > 500) {
+                        en.actionState = 'IDLE';
+                        en.lastShootTime = Date.now();
+                    }
                 }
             });
 
             let currentBullets = [...state.enemyBullets];
             currentBullets.forEach(bull => {
                 if (bull.dead) return;
-                bull.x += bull.vx * state.globalSpeedMult;
-                bull.y += bull.vy * state.globalSpeedMult;
+                if (bull.type === 'MUD') {
+                    bull.vy += 0.2;
+                    bull.x += bull.vx * state.globalSpeedMult;
+                    bull.y += bull.vy * state.globalSpeedMult;
+                    
+                    if (bull.y >= paddle.y) {
+                        bull.dead = true;
+                        ['m', 'u', 'd'].forEach((char, idx) => {
+                            let angle = -Math.PI / 2 + (idx - 1) * 0.5;
+                            let speed = 3 + Math.random() * 2;
+                            state.enemyBullets.push({
+                                x: bull.x, y: bull.y, w: 16, h: 16,
+                                vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
+                                type: 'MUD_SHRAPNEL', char: char, dead: false
+                            });
+                        });
+                        playBeep(400);
+                    }
+                } else if (bull.type === 'MUD_SHRAPNEL') {
+                    bull.vy += 0.2;
+                    bull.x += bull.vx * state.globalSpeedMult;
+                    bull.y += bull.vy * state.globalSpeedMult;
+                    if (bull.y > CANVAS_HEIGHT) bull.dead = true;
+                } else if (bull.type === 'LASER') {
+                    let elapsed = Date.now() - bull.fireStartTime;
+                    if (elapsed >= 500) bull.dead = true;
+                    else bull.w = 20 * (1 - elapsed / 500);
+                } else {
+                    bull.x += bull.vx * state.globalSpeedMult;
+                    bull.y += bull.vy * state.globalSpeedMult;
+                }
 
-                if (bull.type === 'DROP_BULLET' && !bull.exploded && bull.y >= Math.max(CANVAS_HEIGHT / 2, (bull.startY || 0) + 150)) {
+                if (bull.type === 'ERROR_BULLET' && !bull.exploded && bull.y >= Math.max(CANVAS_HEIGHT / 2, (bull.startY || 0) + 150)) {
                     bull.exploded = true;
                     bull.dead = true;
                     let angles = [0, 45, 90, 135, 180, 225, 270, 315];
@@ -514,18 +606,55 @@ export const update = () => {
                     bull.vy += 0.2 * state.globalSpeedMult;
                 }
 
-                if (!paddle.destroyed && Date.now() > (paddle.invincibleEndTime || 0) && bull.y + bull.h > paddle.y && bull.y < paddle.y + paddle.h && bull.x + bull.w > paddle.x && bull.x < paddle.x + paddle.w) {
-                    bull.dead = true;
-                    
-                    if (Date.now() < paddle.ndEndTime) {
-                        paddle.destroyed = true;
-                        spawnPaddleParticles();
-                    } else if (Date.now() < paddle.foundEndTime) {
-                        paddle.ndEndTime = Date.now() + 5000;
-                        paddle.foundEndTime = Date.now() + 10000;
-                    } else {
-                        paddle.foundEndTime = Date.now() + 10000;
-                        paddle.ndEndTime = 0;
+                let hitRadius = 10;
+                let isHit = false;
+
+                if (bull.type === 'LASER') {
+                    if (!bull.dead && Date.now() - (bull.lastHitTime || 0) > 100) {
+                        let t = (paddle.y - bull.y) / (CANVAS_HEIGHT - bull.y);
+                        let laserXAtPaddle = bull.x + t * ((bull.targetX || bull.x) - bull.x);
+                        if (!paddle.destroyed && paddle.x < laserXAtPaddle + bull.w / 2 && paddle.x + paddle.w > laserXAtPaddle - bull.w / 2) {
+                            bull.lastHitTime = Date.now();
+                            if (Date.now() < paddle.ndEndTime) {
+                                paddle.destroyed = true;
+                                spawnPaddleParticles();
+                            } else if (Date.now() < paddle.foundEndTime) {
+                                paddle.ndEndTime = Date.now() + 5000;
+                                paddle.foundEndTime = Date.now() + 10000;
+                            } else {
+                                paddle.foundEndTime = Date.now() + 10000;
+                                paddle.ndEndTime = 0;
+                            }
+                            playBeep(100);
+                        }
+                    }
+                } else {
+                    if (!paddle.destroyed && Date.now() > (paddle.invincibleEndTime || 0)) {
+                        let nearestX = Math.max(paddle.x, Math.min(bull.x, paddle.x + paddle.w));
+                        let nearestY = Math.max(paddle.y, Math.min(bull.y, paddle.y + paddle.h));
+                        let dx = bull.x - nearestX;
+                        let dy = bull.y - nearestY;
+                        isHit = (dx * dx + dy * dy <= hitRadius * hitRadius);
+                    }
+
+                    if (isHit) {
+                        if (bull.type === 'MUD' || bull.type === 'MUD_SHRAPNEL') {
+                            paddle.mudEndTime = Date.now() + 10000;
+                            bull.dead = true;
+                            playBeep(150);
+                        } else {
+                            bull.dead = true;
+                            if (Date.now() < paddle.ndEndTime) {
+                                paddle.destroyed = true;
+                                spawnPaddleParticles();
+                            } else if (Date.now() < paddle.foundEndTime) {
+                                paddle.ndEndTime = Date.now() + 5000;
+                                paddle.foundEndTime = Date.now() + 10000;
+                            } else {
+                                paddle.foundEndTime = Date.now() + 10000;
+                                paddle.ndEndTime = 0;
+                            }
+                        }
                     }
                 }
             });
@@ -656,11 +785,11 @@ export const update = () => {
                             let cy = 0; faceBlocks.forEach(b => cy = Math.max(cy, b.baseY));
 
                             let isEnhancedPhase = (state.bossState.leftHand.hp + state.bossState.rightHand.hp) <= (state.bossState.leftHand.maxHp + state.bossState.rightHand.maxHp) * 0.5;
-                            let types = isEnhancedPhase ? ['FOUND', 'DROP'] : ['NOT', 'FOUND', 'DROP'];
+                            let types = isEnhancedPhase ? ['FOUND', 'ERROR'] : ['NOT', 'FOUND', 'ERROR'];
                             let tIdx = Math.floor(Math.random() * types.length);
                             let eType = types[tIdx];
-                            let eW = eType === 'DROP' ? 128 : (eType === 'FOUND' ? 160 : 96);
-                            let eHp = eType === 'DROP' ? 4 : (eType === 'FOUND' ? 5 : 3);
+                            let eW = eType === 'ERROR' ? 128 : (eType === 'FOUND' ? 160 : 96);
+                            let eHp = eType === 'ERROR' ? 5 : (eType === 'FOUND' ? 5 : 3);
 
                             state.enemies.push({
                                 x: cx,

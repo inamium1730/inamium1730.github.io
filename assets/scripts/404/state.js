@@ -4,6 +4,8 @@ import { bossesData } from './constants/bosses.js';
 export const state = {
     gameState: 'TUTORIAL', // TUTORIAL, READY, PLAYING, GAMECLEAR, GAMEOVER
     score: 0,
+    currentStage: 1,
+    currentMapData: null,
     reserve: ['4', '0', '4'],
     balls: [],
     items: [],
@@ -19,6 +21,9 @@ export const state = {
     enemySpawnCount: 0,
     stars: [],
     clouds: [],
+    tumbleweeds: [],
+    cacti: [],
+    glitchTime: 0,
     
     cheatBuffer: [],
 
@@ -33,7 +38,8 @@ export const state = {
         ndEndTime: 0, 
         destroyed: false,
         isSpawning: false,
-        invincibleEndTime: 0
+        invincibleEndTime: 0,
+        mudEndTime: 0
     },
     
     keys: { left: false, right: false },

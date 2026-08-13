@@ -1,25 +1,32 @@
-import { CANVAS_WIDTH, CANVAS_HEIGHT, MAP1, MAP2, MAP3, MAP4, MAP5 } from './constants/maps.js';
+import { CANVAS_WIDTH, CANVAS_HEIGHT, MAP1, MAP2, MAP3, MAP4, MAP5, MAP6, MAP7, MAP8, MAP9 } from './constants/maps.js';
 import { state } from './state.js';
 import { playBeep } from './audio.js';
 import { currentTheme } from './theme.js';
 
 export const initBlocks = () => {
     state.blocks = [];
-    const blockW = 18;
-    const blockH = 24;
+    let blockW = 18;
+    let blockH = 24;
     let selectedMap = MAP1;
     if (state.currentStage === 2) selectedMap = MAP2;
     if (state.currentStage === 3) selectedMap = MAP3;
     if (state.currentStage === 4) selectedMap = MAP4;
     if (state.currentStage === 5) selectedMap = MAP5;
+    if (state.currentStage === 6) selectedMap = MAP6;
+    if (state.currentStage === 7) selectedMap = MAP7;
+    if (state.currentStage === 8) selectedMap = MAP8;
+    if (state.currentStage === 9) selectedMap = MAP9;
 
     let lCount = 0; let fCount = 0; let rCount = 0;
 
-    const startX = (CANVAS_WIDTH - (selectedMap[0].length * blockW)) / 2;
+    let reqWidth = selectedMap.layout[0].length * blockW;
+
+    state.currentMapData = selectedMap;
+    const startX = (CANVAS_WIDTH - (selectedMap.layout[0].length * blockW)) / 2;
     const startY = 100;
-    for (let r = 0; r < selectedMap.length; r++) {
-        for (let c = 0; c < selectedMap[r].length; c++) {
-            let char = selectedMap[r][c];
+    for (let r = 0; r < selectedMap.layout.length; r++) {
+        for (let c = 0; c < selectedMap.layout[r].length; c++) {
+            let char = selectedMap.layout[r][c];
             if (char !== ' ') {
                 let part = null;
                 if (state.currentStage === 5) {
@@ -145,13 +152,13 @@ export const spawnPaddleParticles = () => {
 
 export const resetGame = (advanceStage = false) => {
     if (advanceStage) {
-        let nextStage = state.currentStage >= 5 ? 1 : state.currentStage + 1;
+        let nextStage = state.currentStage >= 10 ? 1 : state.currentStage + 1;
         let maxStage = parseInt(localStorage.getItem('404_max_stage') || '1', 10);
-        if (state.currentStage < 5 && nextStage > maxStage) {
+        if (state.currentStage < 10 && nextStage > maxStage) {
             localStorage.setItem('404_max_stage', nextStage);
         }
-        if (state.currentStage === 5) {
-            localStorage.setItem('404_max_stage', 5);
+        if (state.currentStage === 10) {
+            localStorage.setItem('404_max_stage', 10);
         }
         state.currentStage = nextStage;
     }
@@ -166,6 +173,7 @@ export const resetGame = (advanceStage = false) => {
     
     state.paddle.foundEndTime = 0;
     state.paddle.ndEndTime = 0;
+    state.paddle.mudEndTime = 0;
     state.paddle.destroyed = false;
     state.paddle.w = 260;
     state.paddle.text = 'NOTFOUND';
@@ -173,6 +181,10 @@ export const resetGame = (advanceStage = false) => {
     state.balls = [];
     state.items = [];
     state.globalSpeedMult = 1.75;
+    
+    state.tumbleweeds = [];
+    state.cacti = [];
+    state.glitchTime = 0;
     
     state.paddle.y = CANVAS_HEIGHT - 60;
     state.paddle.x = CANVAS_WIDTH / 2 - state.paddle.w / 2;

@@ -96,6 +96,65 @@ export const draw = (ctx) => {
         ctx.fillStyle = currentTheme === 'dark' ? '#333' : '#ccc';
         ctx.fillRect(0, CANVAS_HEIGHT - 30, CANVAS_WIDTH, 30);
     }
+    
+    if (state.currentStage >= 7 && state.currentStage <= 9) {
+        // Draw desert ground
+        ctx.fillStyle = currentTheme === 'dark' ? '#3e2723' : '#fde047'; // dark brown or sand
+        ctx.fillRect(0, CANVAS_HEIGHT - 100, CANVAS_WIDTH, 100);
+
+        // Draw sun/moon
+        ctx.fillStyle = currentTheme === 'dark' ? '#fef08a' : '#ef4444'; // moon or sun
+        let sunX = CANVAS_WIDTH - 200, sunY = 150, sunSize = 60;
+        ctx.fillRect(sunX, sunY, sunSize, sunSize);
+        // Simple pixel art for sun/moon
+        ctx.fillStyle = currentTheme === 'dark' ? '#111' : '#facc15';
+        ctx.fillRect(sunX + 10, sunY + 10, 15, 15);
+        ctx.fillRect(sunX + 35, sunY + 30, 15, 15);
+
+        if (state.currentStage === 7) {
+            // Tumbleweeds
+            ctx.fillStyle = currentTheme === 'dark' ? '#a16207' : '#713f12';
+            ctx.font = '30px "Press Start 2P"';
+            state.tumbleweeds.forEach(t => {
+                ctx.save();
+                ctx.translate(t.x, t.y);
+                ctx.rotate(t.rotation);
+                ctx.fillText('*', 0, 0);
+                ctx.restore();
+            });
+        }
+
+        if (state.currentStage >= 8) {
+            // Cacti
+            ctx.fillStyle = currentTheme === 'dark' ? '#14532d' : '#22c55e';
+            state.cacti.forEach(c => {
+                ctx.fillRect(c.x, c.y, 20, c.h); // Main trunk
+                ctx.fillRect(c.x - 20, c.y + 20, 20, 10); // Left arm
+                ctx.fillRect(c.x - 20, c.y + 10, 10, 20); // Left arm up
+                ctx.fillRect(c.x + 20, c.y + 40, 20, 10); // Right arm
+                ctx.fillRect(c.x + 30, c.y + 20, 10, 30); // Right arm up
+            });
+        }
+        
+        if (state.currentStage === 9) {
+            // Dot art pyramid in the background
+            ctx.fillStyle = currentTheme === 'dark' ? '#78350f' : '#fcd34d'; 
+            let pyBaseW = 300;
+            let pyX = CANVAS_WIDTH / 2 - pyBaseW / 2;
+            let pyY = CANVAS_HEIGHT - 100;
+            let layers = 8;
+            let layerH = 15;
+            for (let i = 0; i < layers; i++) {
+                let w = pyBaseW - (i * (pyBaseW / layers));
+                let x = pyX + (pyBaseW - w) / 2;
+                let y = pyY - (i + 1) * layerH;
+                for (let j = 0; j < w; j += 15) {
+                    // Draw bricks
+                    ctx.fillRect(x + j, y, 13, layerH - 2);
+                }
+            }
+        }
+    }
 
     const textColor = getThemeColor('--text-main') || '#fff';
 
@@ -174,6 +233,9 @@ export const draw = (ctx) => {
     if (Date.now() < state.paddle.nBuffEndTime - 1000) {
         let blinkColor = currentTheme === 'dark' ? '#38bdf8' : '#0284c7';
         pColor = (Math.floor(Date.now() / 250) % 2 === 0) ? blinkColor : textColor;
+    } else if (Date.now() < (state.paddle.mudEndTime || 0)) {
+        let mudColor = currentTheme === 'dark' ? '#78350f' : '#451a03'; // Dark brown
+        pColor = (Math.floor(Date.now() / 250) % 2 === 0) ? mudColor : textColor;
     } else if (isPenaltyBlink && Math.floor(Date.now() / 250) % 2 === 0) {
         pColor = '#ef4444';
     }
@@ -190,7 +252,41 @@ export const draw = (ctx) => {
     if (state.currentStage >= 2) {
         ctx.textAlign = 'center';
         ctx.font = '32px "Press Start 2P"';
+        state.enemyBullets.forEach(bull => {
+            if (bull.type === 'LASER') {
+                let isWhite = Math.floor(Date.now() / 50) % 2 === 0;
+                ctx.strokeStyle = isWhite ? '#ffffff' : '#ef4444';
+                ctx.lineWidth = bull.w;
+                ctx.beginPath();
+                ctx.moveTo(bull.x, bull.y);
+                ctx.lineTo(bull.targetX || bull.x, CANVAS_HEIGHT);
+                ctx.stroke();
+            }
+        });
+
         state.enemies.forEach(en => {
+            if (en.actionState === 'AIMING' || en.actionState === 'LOCKING') {
+                ctx.lineDashOffset = -(Date.now() % 1000) * 0.1;
+                if (en.actionState === 'AIMING') {
+                    ctx.strokeStyle = '#ffffff';
+                } else {
+                    let p = (Date.now() - en.actionStartTime) / 500;
+                    if (p > 1) p = 1;
+                    let r = Math.floor(255 - (255 - 239) * p);
+                    let g = Math.floor(255 - (255 - 68) * p);
+                    let b = Math.floor(255 - (255 - 68) * p);
+                    ctx.strokeStyle = `rgb(${r}, ${g}, ${b})`;
+                }
+                ctx.lineWidth = 2;
+                ctx.setLineDash([10, 10]);
+                ctx.beginPath();
+                ctx.moveTo(en.x, en.y + 20);
+                ctx.lineTo(en.aimTargetX, CANVAS_HEIGHT);
+                ctx.stroke();
+                ctx.setLineDash([]);
+                ctx.lineDashOffset = 0;
+            }
+
             ctx.fillStyle = textColor;
             if (en.type === 'FOUND') {
                 let chars = ['F', 'O', 'U', 'N', 'D'];
@@ -203,14 +299,36 @@ export const draw = (ctx) => {
                     else ctx.globalAlpha = idx === 0 ? 1.0 : 0.3;
                     ctx.fillText(c, en.x + offsets[idx], en.y + en.h / 2);
                 });
-            } else if (en.type === 'DROP') {
-                let chars = ['D', 'R', 'O', 'P'];
-                let offsets = [-48, -16, 16, 48];
+            } else if (en.type === 'ERROR') {
+                let chars = ['E', 'R', 'R', 'O', 'R'];
+                let offsets = [-64, -32, 0, 32, 64];
                 chars.forEach((c, idx) => {
-                    if (en.hp === 4) ctx.globalAlpha = 1.0;
+                    if (en.hp === 5) ctx.globalAlpha = 1.0;
+                    else if (en.hp === 4) ctx.globalAlpha = idx < 4 ? 1.0 : 0.3;
                     else if (en.hp === 3) ctx.globalAlpha = idx < 3 ? 1.0 : 0.3;
                     else if (en.hp === 2) ctx.globalAlpha = idx < 2 ? 1.0 : 0.3;
                     else ctx.globalAlpha = idx === 0 ? 1.0 : 0.3;
+                    ctx.fillText(c, en.x + offsets[idx], en.y + en.h / 2);
+                });
+            } else if (en.type === 'DENIED') {
+                let chars = ['D', 'E', 'N', 'I', 'E', 'D'];
+                let offsets = [-80, -48, -16, 16, 48, 80];
+                chars.forEach((c, idx) => {
+                    ctx.globalAlpha = (en.hp > idx) ? 1.0 : 0.3;
+                    ctx.fillText(c, en.x + offsets[idx], en.y + en.h / 2);
+                });
+            } else if (en.type === 'ACCESS') {
+                let chars = ['A', 'C', 'C', 'E', 'S', 'S'];
+                let offsets = [-80, -48, -16, 16, 48, 80];
+                chars.forEach((c, idx) => {
+                    ctx.globalAlpha = (en.hp > idx) ? 1.0 : 0.3;
+                    ctx.fillText(c, en.x + offsets[idx], en.y + en.h / 2);
+                });
+            } else if (en.type === 'FORBIDDEN') {
+                let chars = ['F', 'O', 'R', 'B', 'I', 'D', 'D', 'E', 'N'];
+                let offsets = [-128, -96, -64, -32, 0, 32, 64, 96, 128];
+                chars.forEach((c, idx) => {
+                    ctx.globalAlpha = (en.hp > idx) ? 1.0 : 0.3;
                     ctx.fillText(c, en.x + offsets[idx], en.y + en.h / 2);
                 });
             } else {
@@ -234,6 +352,7 @@ export const draw = (ctx) => {
                 ctx.fillText(bull.char, bull.x, bull.y);
                 return;
             }
+            if (bull.type === 'LASER') return;
 
             ctx.save();
             ctx.translate(bull.x + bull.w / 2, bull.y + bull.h / 2);
@@ -241,15 +360,20 @@ export const draw = (ctx) => {
 
             let bText = "404";
             if (bull.type === 'FOUND') bText = "FOUND";
-            else if (bull.type === 'DROP_BULLET' || bull.type === 'SCATTERED_BULLET') bText = "DROP";
+            else if (bull.type === 'ERROR_BULLET' || bull.type === 'SCATTERED_BULLET') bText = "ERROR";
             else if (bull.type === '404NOTFOUND_BASE') bText = "404NOTFOUND";
             else if (bull.type === '404NOTFOUND_SHRAPNEL') bText = bull.char;
+            else if (bull.type === 'MUD') bText = "mud";
+            else if (bull.type === 'MUD_SHRAPNEL') bText = bull.char;
 
             let bColor = textColor;
-            if (bull.type === 'DROP_BULLET') {
+            if (bull.type === 'ERROR_BULLET') {
                 bColor = (Math.floor(Date.now() / 100) % 2 === 0) ? '#f97316' : textColor;
             } else if (bull.type === 'SCATTERED_BULLET') {
                 bColor = (Math.floor(Date.now() / 100) % 2 === 0) ? '#ef4444' : textColor;
+            } else if (bull.type === 'MUD' || bull.type === 'MUD_SHRAPNEL') {
+                let mudColor = currentTheme === 'dark' ? '#78350f' : '#451a03';
+                bColor = (Math.floor(Date.now() / 500) % 2 === 0) ? mudColor : textColor;
             } else if (bull.type === '404NOTFOUND_BASE' || bull.type === '404NOTFOUND_SHRAPNEL') {
                 bColor = (Math.floor(Date.now() / 100) % 2 === 0) ? '#a855f7' : textColor;
             } else {
@@ -363,7 +487,7 @@ export const draw = (ctx) => {
         ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
         ctx.font = '16px "Press Start 2P"';
         ctx.textAlign = 'center';
-        const stageNames = ["", "404", "NOT", "FOUND", "DROP", "404"];
+        const stageNames = ["", "404", "NOT", "FOUND", "ERROR", "404", "403", "DENIED", "ACCESS", "FORBIDDEN", "403"];
         ctx.fillText("Stage " + state.currentStage + " - " + stageNames[state.currentStage], CANVAS_WIDTH / 2, CANVAS_HEIGHT - 60);
     }
 };
