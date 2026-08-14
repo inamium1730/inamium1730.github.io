@@ -1312,7 +1312,7 @@ export const update = () => {
             } else if (bs.state === 'CLEAR_SMOKE') {
                 bs.face.xOffset = Math.sin((Date.now() - (bs.timer - 1500)) * 0.02) * 25;
                 bs.face.yOffset = 0;
-            } else if (bs.face.state !== 'DROP' && bs.face.state !== 'RETURN' && bs.face.state !== 'PREP' && bs.face.state !== 'WAIT_RETURN' && bs.face.state !== 'WAIT_DROP') {
+            } else if (bs.state !== 'DYING' && bs.state !== 'DEAD' && bs.face.state !== 'DYING' && bs.face.state !== 'DROP' && bs.face.state !== 'RETURN' && bs.face.state !== 'PREP' && bs.face.state !== 'WAIT_RETURN' && bs.face.state !== 'WAIT_DROP') {
                 bs.face.xOffset = Math.sin(Date.now() * 0.001) * 7.5; // Reduced from 30
                 bs.face.yOffset = Math.sin(Date.now() * 0.002) * 3.75; // Reduced from 15
             }
@@ -1407,33 +1407,48 @@ export const update = () => {
                 }
             }
 
-            if (hpRatio <= 0.05 && bs.state !== 'DYING' && bs.state !== 'DEAD') {
+            let isFaceDead = bs.face.hp <= 0 || hpRatio <= 0.05 || faceBlocks.length === 0;
+
+            if (isFaceDead && bs.state !== 'DYING' && bs.state !== 'DEAD') {
                 bs.state = 'DYING';
                 bs.timer = Date.now() + 4000;
+                bs.face.state = 'DYING';
+                bs.face.yOffset = 0;
+                bs.face.xOffset = 0;
+                bs.face.dropVy = 0;
+                bs.smokeActive = false;
+                blasterBlocks.forEach(b => { b.active = false; });
+                state.enemies = [];
+                state.enemyBullets = [];
                 state.balls.forEach(b => { b.vx = 0; b.vy = 0; b.isEnhanced = false; });
                 playBeep(100);
             }
 
             if (bs.state === 'DYING') {
-                faceBlocks.forEach(b => {
-                    b.y += (Math.random() - 0.5) * 5;
-                    b.x += (Math.random() - 0.5) * 5;
-                });
-                if (Math.random() < 0.2) {
-                    let b = faceBlocks[Math.floor(Math.random() * faceBlocks.length)];
-                    if (b) {
-                        for (let i = 0; i < 5; i++) {
-                            state.particles.push({
-                                x: b.x + b.w / 2, y: b.y + b.h / 2,
-                                vx: (Math.random() - 0.5) * 10, vy: (Math.random() - 0.5) * 10,
-                                size: Math.random() * 5 + 2, life: 1.0, decay: Math.random() * 0.02 + 0.01,
-                                color: currentTheme === 'dark' ? '#ef4444' : '#b91c1c'
-                            });
-                        }
-                        b.active = false;
-                        playBeep(100);
+                bs.face.xOffset = (Math.random() - 0.5) * 10;
+                bs.face.yOffset = (Math.random() - 0.5) * 10;
+
+                let activeFace = state.blocks.filter(b => b.part === 'face' && b.active);
+                if (Math.random() < 0.3) {
+                    let b = activeFace.length > 0 ? activeFace[Math.floor(Math.random() * activeFace.length)] : null;
+                    let bx = b ? (b.baseX + bs.face.xOffset + b.w / 2) : (CANVAS_WIDTH / 2 + (Math.random() - 0.5) * 200);
+                    let by = b ? (b.baseY + bs.face.yOffset + b.h / 2) : (150 + (Math.random() - 0.5) * 100);
+                    for (let i = 0; i < 5; i++) {
+                        state.particles.push({
+                            x: bx,
+                            y: by,
+                            vx: (Math.random() - 0.5) * 10,
+                            vy: (Math.random() - 0.5) * 10,
+                            size: Math.random() * 5 + 2,
+                            life: 1.0,
+                            decay: Math.random() * 0.02 + 0.01,
+                            color: currentTheme === 'dark' ? '#ef4444' : '#b91c1c'
+                        });
                     }
+                    if (b) b.active = false;
+                    playBeep(100);
                 }
+
                 if (Date.now() > bs.timer) {
                     bs.state = 'DEAD';
                     bs.timer = Date.now() + 4000;
@@ -1441,10 +1456,10 @@ export const update = () => {
 
                     let fBlocks = state.blocks.filter(b => b.part === 'face');
                     if (fBlocks.length > 0) {
-                        let minX = Math.min(...fBlocks.map(b => b.x));
-                        let maxX = Math.max(...fBlocks.map(b => b.x + b.w));
-                        let minY = Math.min(...fBlocks.map(b => b.y));
-                        let maxY = Math.max(...fBlocks.map(b => b.y + b.h));
+                        let minX = Math.min(...fBlocks.map(b => b.baseX));
+                        let maxX = Math.max(...fBlocks.map(b => b.baseX + b.w));
+                        let minY = Math.min(...fBlocks.map(b => b.baseY));
+                        let maxY = Math.max(...fBlocks.map(b => b.baseY + b.h));
                         for (let i = 0; i < 100; i++) {
                             state.particles.push({
                                 x: minX + Math.random() * (maxX - minX),
@@ -1458,6 +1473,7 @@ export const update = () => {
                             });
                         }
                     }
+                    playBeep(80);
                 }
             } else if (bs.state === 'DEAD') {
                 if (Date.now() > bs.timer) {

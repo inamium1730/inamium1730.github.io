@@ -228,7 +228,11 @@ export const draw = (ctx) => {
                 if (bl.part === 'face') {
                     bx = bl.baseX + bs.face.xOffset;
                     by = bl.baseY + bs.face.yOffset;
-                    if (['WAIT_DROP', 'DROP', 'WAIT_RETURN', 'RETURN'].includes(bs.face.state)) {
+                    if (bs.state === 'DYING') {
+                        if (Math.floor(Date.now() / 100) % 2 === 0) {
+                            bColor = '#ef4444';
+                        }
+                    } else if (['WAIT_DROP', 'DROP', 'WAIT_RETURN', 'RETURN'].includes(bs.face.state)) {
                         if (Math.floor(Date.now() / 150) % 2 === 0) {
                             bColor = '#ef4444';
                         }
