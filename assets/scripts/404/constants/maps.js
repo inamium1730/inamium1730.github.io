@@ -4,6 +4,7 @@ export const CANVAS_HEIGHT = 768;
 export const MAP1 = {
     name: 'NOT',
     spawnInterval: null,
+    maxEnemies: 0,
     layout: [
         "444      444   000000000000   444      444",
         "444      444   000000000000   444      444",
@@ -21,6 +22,7 @@ export const MAP1 = {
 export const MAP2 = {
     name: 'NOT',
     spawnInterval: 20000,
+    maxEnemies: 2,
     layout: [
         "NNN      NNN    OOOOOOOOOO    TTTTTTTTTTTT",
         "NNNN     NNN   OOOOOOOOOOOO   TTTTTTTTTTTT",
@@ -37,6 +39,7 @@ export const MAP2 = {
 export const MAP3 = {
     name: 'FOUND',
     spawnInterval: 15000,
+    maxEnemies: 4,
     layout: [
         "FFFFFFF  OOOOOO  UUU  UUU NNN  NNN DDDDDD  ",
         "FFFFFFF OOOOOOOO UUU  UUU NNN  NNN DDDDDDD ",
@@ -53,6 +56,7 @@ export const MAP3 = {
 export const MAP4 = {
     name: 'ERROR',
     spawnInterval: 10000,
+    maxEnemies: 6,
     layout: [
         "EEEEEEEE  RRRRRRR     RRRRRRR       OOOOO    RRRRRRR   ",
         "EEEEEEEE  RRRRRRRR    RRRRRRRR     OOOOOOO   RRRRRRRR  ",
@@ -69,6 +73,7 @@ export const MAP4 = {
 export const MAP5 = {
     name: 'BOSS',
     spawnInterval: null,
+    maxEnemies: 0, // 動的に変化
     layout: [
         "      LLLL   FFFFF   RRRR      ",
         "     LLLLL  FFFFFFF  RRRRR     ",
@@ -85,6 +90,7 @@ export const MAP5 = {
 export const MAP6 = {
     name: '403',
     spawnInterval: 16000,
+    maxEnemies: 4,
     layout: [
         "444   444    00000    333333333",
         "444   444   0000000   333333333",
@@ -101,6 +107,7 @@ export const MAP6 = {
 export const MAP7 = {
     name: 'DENIED',
     spawnInterval: 14000,
+    maxEnemies: 5,
     layout: [
         "DDDDDDD    EEEEEEEE  NNN   NNN  III  EEEEEEEE  DDDDDDD  ",
         "DDDDDDDD   EEEEEEEE  NNNN  NNN  III  EEEEEEEE  DDDDDDDD ",
@@ -117,6 +124,7 @@ export const MAP7 = {
 export const MAP8 = {
     name: 'ACCESS',
     spawnInterval: 12000,
+    maxEnemies: 6,
     layout: [
         "   AAA       CCCCC     SSSSSSS    SSSSSSS",
         "  AAAAA     CCCCCCC   SSSSSSSS   SSSSSSSS",
@@ -133,6 +141,7 @@ export const MAP8 = {
 export const MAP9 = {
     name: 'FORBIDDEN',
     spawnInterval: 10000,
+    maxEnemies: 7,
     layout: [
         "FFFFFFFF   BBBBBBB    DDDDDDD    NNN   NNN",
         "FFFFFFFF   BBBBBBBB   DDDDDDDD   NNNN  NNN",
@@ -143,5 +152,27 @@ export const MAP9 = {
         "FFF        BBB   BBB  DDD   DDD  NNN   NNN",
         "FFF        BBBBBBBB   DDDDDDDD   NNN   NNN",
         "FFF        BBBBBBB    DDDDDDD    NNN   NNN"
+    ]
+};
+
+export const MAP10 = {
+    name: '403',
+    spawnInterval: null,
+    maxEnemies: 0,
+    layout: [
+        " 333333  333333 ",
+        "3333333333333333",
+        "3333333333333333",
+        "333   3333   333",
+        "333   3333   333",
+        "333   3333   333",
+        "333   3333   333",
+        " 00000000000000 ",
+        "0000000000000000",
+        "0000000000000000",
+        "000          000",
+        "0000000000000000",
+        "0000000000000000",
+        " 00000000000000 ",
     ]
 };

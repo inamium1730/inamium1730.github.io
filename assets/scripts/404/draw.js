@@ -97,6 +97,11 @@ export const draw = (ctx) => {
         ctx.fillRect(0, CANVAS_HEIGHT - 30, CANVAS_WIDTH, 30);
     }
 
+    if (state.currentStage === 10) {
+        ctx.fillStyle = currentTheme === 'dark' ? '#3e2723' : '#fde047';
+        ctx.fillRect(0, CANVAS_HEIGHT - 30, CANVAS_WIDTH, 30);
+    }
+
     if (state.currentStage >= 7 && state.currentStage <= 9) {
         // Draw desert ground
         ctx.fillStyle = currentTheme === 'dark' ? '#3e2723' : '#fde047'; // dark brown or sand
@@ -110,19 +115,6 @@ export const draw = (ctx) => {
         ctx.fillStyle = currentTheme === 'dark' ? '#111' : '#facc15';
         ctx.fillRect(sunX + 10, sunY + 10, 15, 15);
         ctx.fillRect(sunX + 35, sunY + 30, 15, 15);
-
-        if (state.currentStage === 7) {
-            // Tumbleweeds
-            ctx.fillStyle = currentTheme === 'dark' ? '#a16207' : '#713f12';
-            ctx.font = '30px "Press Start 2P"';
-            state.tumbleweeds.forEach(t => {
-                ctx.save();
-                ctx.translate(t.x, t.y);
-                ctx.rotate(t.rotation);
-                ctx.fillText('*', 0, 0);
-                ctx.restore();
-            });
-        }
 
         if (state.currentStage === 9) {
             // Dot art pyramid in the background
@@ -148,12 +140,26 @@ export const draw = (ctx) => {
             ctx.fillStyle = currentTheme === 'dark' ? '#14532d' : '#22c55e';
             state.cacti.forEach(c => {
                 ctx.fillRect(c.x, c.y, 20, c.h); // Main trunk
-                ctx.fillRect(c.x - 20, c.y + 20, 20, 10); // Left arm
-                ctx.fillRect(c.x - 20, c.y + 10, 10, 20); // Left arm up
-                ctx.fillRect(c.x + 20, c.y + 40, 20, 10); // Right arm
-                ctx.fillRect(c.x + 30, c.y + 20, 10, 30); // Right arm up
+                ctx.fillRect(c.x - 15, c.y + 20, 15, 10); // Left arm base
+                ctx.fillRect(c.x - 15, c.y + 5, 10, 20); // Left arm up
+                ctx.fillRect(c.x + 20, c.y + 30, 15, 10); // Right arm base
+                ctx.fillRect(c.x + 25, c.y + 15, 10, 20); // Right arm up
             });
         }
+    }
+
+    if (state.tumbleweeds.length > 0) {
+        // Tumbleweeds (semi-transparent)
+        ctx.fillStyle = currentTheme === 'dark' ? '#a16207' : '#713f12';
+        ctx.font = '30px "Press Start 2P"';
+        state.tumbleweeds.forEach(t => {
+            ctx.save();
+            ctx.globalAlpha = 0.4;
+            ctx.translate(t.x, t.y);
+            ctx.rotate(t.rotation);
+            ctx.fillText('*', 0, 0);
+            ctx.restore();
+        });
     }
 
     const textColor = getThemeColor('--text-main') || '#fff';
@@ -247,11 +253,12 @@ export const draw = (ctx) => {
 
     ctx.font = '20px "Press Start 2P"';
     state.balls.forEach(b => {
+        if (b.hidden) return;
         let bColor = b.color || textColor;
         
         let speed = Math.sqrt(b.vx * b.vx + b.vy * b.vy);
-        if (b.isRecovering || speed < 0.1) {
-            ctx.globalAlpha = (Math.floor(Date.now() / 500) % 2 === 0) ? 0.3 : 1.0;
+        if (b.isRecovering || b.isDecelerating || b.stopped || speed < 0.1) {
+            ctx.globalAlpha = (Math.floor(Date.now() / 250) % 2 === 0) ? 0.3 : 1.0;
         }
 
         if (b.isEnhanced && Date.now() < state.paddle.nBuffEndTime - 1000) {
@@ -271,9 +278,9 @@ export const draw = (ctx) => {
 
         ctx.save();
         ctx.lineWidth = 2;
-        if (bs.state === 'AIMING_A' || bs.state === 'AIMING_B') {
+        if (bs.state === 'AIMING_A' || bs.state === 'AIMING_B' || bs.state === 'PHASE2_LASER_AIM') {
             let timeRemaining = bs.timer - Date.now();
-            let maxAimTime = bs.maxAimTime || 500;
+            let maxAimTime = bs.maxAimTime || (bs.state === 'PHASE2_LASER_AIM' ? 1000 : 500);
             if (timeRemaining < 0) timeRemaining = 0;
             if (timeRemaining > maxAimTime) timeRemaining = maxAimTime;
             let redRatio = 1 - (timeRemaining / maxAimTime);
@@ -282,7 +289,10 @@ export const draw = (ctx) => {
             ctx.lineDashOffset = -(Date.now() % 1000) * 0.1;
             ctx.beginPath();
 
-            if (bs.state === 'AIMING_A') {
+            if (bs.state === 'PHASE2_LASER_AIM') {
+                ctx.moveTo(nozzleX, nozzleY);
+                ctx.lineTo(bs.laserTargetX, CANVAS_HEIGHT);
+            } else if (bs.state === 'AIMING_A') {
                 ctx.moveTo(nozzleX, nozzleY);
                 ctx.lineTo(bs.targetA, CANVAS_HEIGHT);
             } else {
@@ -365,16 +375,19 @@ export const draw = (ctx) => {
         state.enemyBullets.forEach(bull => {
             if (bull.type === 'LASER') {
                 let isWhite = Math.floor(Date.now() / 50) % 2 === 0;
-                ctx.strokeStyle = isWhite ? '#ffffff' : '#ef4444';
+                let color = isWhite ? '#ffffff' : (bull.isPurple ? '#a855f7' : '#ef4444');
+                ctx.strokeStyle = color;
                 ctx.lineWidth = bull.w;
                 ctx.beginPath();
                 ctx.moveTo(bull.x, bull.y);
-                ctx.lineTo(bull.targetX || bull.x, CANVAS_HEIGHT);
+                let targetY = bull.targetY !== undefined ? bull.targetY : CANVAS_HEIGHT;
+                ctx.lineTo(bull.targetX || bull.x, targetY);
                 ctx.stroke();
             }
         });
 
         state.enemies.forEach(en => {
+            if (en.dead) return;
             if (en.actionState === 'AIMING' || en.actionState === 'LOCKING') {
                 ctx.globalAlpha = 1.0;
                 ctx.lineDashOffset = -(Date.now() % 1000) * 0.1;
@@ -467,28 +480,25 @@ export const draw = (ctx) => {
 
             ctx.save();
             ctx.translate(bull.x + bull.w / 2, bull.y + bull.h / 2);
-            let angle = bull.vx !== 0 ? Math.atan2(bull.vy, bull.vx) : Math.PI / 2;
+            let angle = bull.drawAngle !== undefined ? bull.drawAngle : (bull.vx !== 0 ? Math.atan2(bull.vy, bull.vx) : Math.PI / 2);
 
             let bText = "404";
+            let bColor = textColor;
             if (bull.type === 'FOUND') bText = "FOUND";
             else if (bull.type === 'ERROR_BULLET' || bull.type === 'SCATTERED_BULLET') bText = "ERROR";
             else if (bull.type === '404NOTFOUND_BASE') bText = "404NOTFOUND";
             else if (bull.type === '404NOTFOUND_SHRAPNEL') bText = bull.char;
             else if (bull.type === 'MUD') bText = "mud";
             else if (bull.type === 'MUD_SHRAPNEL') bText = bull.char;
-
             else if (bull.type.startsWith('403_')) {
                 bText = bull.char;
-                if (bull.type === '403_BARRAGE') {
-                    if (state.boss403State.state === 'BARRAGE_UP' || state.boss403State.state === 'BARRAGE_DOWN') {
-                        ctx.fillStyle = (Math.floor(Date.now() / 150) % 2 === 0) ? '#a855f7' : textColor;
-                    }
-                }
             }
 
-
-            let bColor = textColor;
-            if (bull.type === 'ERROR_BULLET') {
+            if (bull.type === '403_SAMIDARE_UP' || bull.type === '403_SAMIDARE_RAIN' || bull.type === '403_BARRAGE') {
+                bColor = (Math.floor(Date.now() / 150) % 2 === 0) ? '#a855f7' : textColor;
+            } else if (bull.type === '403_SAMIDARE_CLUSTER') {
+                bColor = (Math.floor(Date.now() / 150) % 2 === 0) ? '#ef4444' : textColor;
+            } else if (bull.type === 'ERROR_BULLET') {
                 bColor = (Math.floor(Date.now() / 100) % 2 === 0) ? '#f97316' : textColor;
             } else if (bull.type === 'SCATTERED_BULLET') {
                 bColor = (Math.floor(Date.now() / 100) % 2 === 0) ? '#ef4444' : textColor;
@@ -507,7 +517,7 @@ export const draw = (ctx) => {
 
             ctx.rotate(angle);
             ctx.fillStyle = bColor;
-            ctx.font = '16px "Press Start 2P"';
+            ctx.font = bText.length > 4 ? '11px "Press Start 2P"' : '16px "Press Start 2P"';
             ctx.textAlign = 'center';
             ctx.fillText(bText, 0, 0);
             ctx.restore();

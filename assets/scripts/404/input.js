@@ -9,12 +9,21 @@ export const setupInput = (canvas, gameContainer) => {
     const handleMobileInput = () => {
         if (!gameContainer.classList.contains('hidden')) {
             if (state.gameState === 'TUTORIAL' || state.gameState === 'READY') {
+                let wasTutorial = state.gameState === 'TUTORIAL';
                 state.gameState = 'PLAYING';
                 state.paddle.isSpawning = false;
                 state.paddle.invincibleEndTime = Date.now() + 2000;
                 if (state.balls.length > 0) {
-                    state.balls[0].vx = (Math.random() > 0.5 ? 1 : -1) * 1.25;
+                    if (state.currentStage === 10 && wasTutorial) {
+                        state.balls[0].vx = 0;
+                    } else {
+                        state.balls[0].vx = (Math.random() > 0.5 ? 1 : -1) * 1.25;
+                    }
                     state.balls[0].vy = -2;
+                    if (state.currentStage === 10 && state.boss403State && state.boss403State.active && state.blocks.some(b => b.part === 'blaster' && b.active)) {
+                        state.balls[0].isDecelerating = true;
+                        state.balls[0].decelerateStartTime = Date.now();
+                    }
                 }
             }
         }
@@ -106,12 +115,21 @@ export const setupInput = (canvas, gameContainer) => {
             if (state.gameState === 'TUTORIAL' || state.gameState === 'READY') {
                 if (e.key === 'a' || e.key === 'A' || e.key === 'd' || e.key === 'D' || e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
                     if (e.repeat && (state.gameState === 'READY' || state.gameState === 'TUTORIAL')) return;
+                    let wasTutorial = state.gameState === 'TUTORIAL';
                     state.gameState = 'PLAYING';
                     state.paddle.isSpawning = false;
                     state.paddle.invincibleEndTime = Date.now() + 2000;
                     if (state.balls.length > 0) {
-                        state.balls[0].vx = (Math.random() > 0.5 ? 1 : -1) * 1.25;
+                        if (state.currentStage === 10 && wasTutorial) {
+                            state.balls[0].vx = 0;
+                        } else {
+                            state.balls[0].vx = (Math.random() > 0.5 ? 1 : -1) * 1.25;
+                        }
                         state.balls[0].vy = -2;
+                        if (state.currentStage === 10 && state.boss403State && state.boss403State.active && state.blocks.some(b => b.part === 'blaster' && b.active)) {
+                            state.balls[0].isDecelerating = true;
+                            state.balls[0].decelerateStartTime = Date.now();
+                        }
                     }
                 }
             }

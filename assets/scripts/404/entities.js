@@ -1,4 +1,4 @@
-import { CANVAS_WIDTH, CANVAS_HEIGHT, MAP1, MAP2, MAP3, MAP4, MAP5, MAP6, MAP7, MAP8, MAP9 } from './constants/maps.js';
+import { CANVAS_WIDTH, CANVAS_HEIGHT, MAP1, MAP2, MAP3, MAP4, MAP5, MAP6, MAP7, MAP8, MAP9, MAP10 } from './constants/maps.js';
 import { state } from './state.js';
 import { playBeep } from './audio.js';
 import { currentTheme } from './theme.js';
@@ -16,6 +16,7 @@ export const initBlocks = () => {
     if (state.currentStage === 7) selectedMap = MAP7;
     if (state.currentStage === 8) selectedMap = MAP8;
     if (state.currentStage === 9) selectedMap = MAP9;
+    if (state.currentStage === 10) selectedMap = MAP10;
 
     let lCount = 0; let fCount = 0; let rCount = 0;
 
@@ -33,6 +34,9 @@ export const initBlocks = () => {
                     if (char === 'L') { part = 'leftHand'; char = '4'; lCount++; }
                     else if (char === 'F') { part = 'face'; char = '0'; fCount++; }
                     else if (char === 'R') { part = 'rightHand'; char = '4'; rCount++; }
+                } else if (state.currentStage === 10) {
+                    if (char === '3' || char === '0') { part = 'face'; fCount++; }
+                    else if (char === '4') { part = 'blaster'; char = '4'; }
                 }
                 state.blocks.push({
                     x: startX + c * blockW,
@@ -57,8 +61,54 @@ export const initBlocks = () => {
         state.bossState.rightHand = { state: 'IDLE', timer: Date.now() + 5000, xOffset: 0, yOffset: 0, targetX: 0, hit: false, hp: rCount, maxHp: rCount };
         state.bossState.face = { state: 'IDLE', timer: Date.now() + 30000, xOffset: 0, yOffset: 0, hp: fCount, maxHp: fCount };
         state.bossState.twoEnemiesStartTime = 0;
+    } else if (state.currentStage === 10) {
+        state.boss403State.active = true;
+        state.boss403State.phase = 1;
+        state.boss403State.state = 'START_WAIT';
+        state.boss403State.timer = 0;
+        state.boss403State.blasterSide = Math.random() < 0.5 ? 'left' : 'right';
+        state.boss403State.blasterAlpha = 0;
+        state.boss403State.blasterXOffset = 0;
+        state.boss403State.blasterYOffset = 0;
+        state.boss403State.face = { xOffset: 0, yOffset: 0, hp: fCount, maxHp: fCount, state: 'IDLE', timer: 0 };
+        state.boss403State.patternSeq = 0;
+        state.boss403State.smokeActive = false;
+        state.boss403State.explosionsLeft = 0;
+        state.boss403State.nextExplosionTime = 0;
+        const blasterLayout = [
+            "      4444",
+            "     44444",
+            "    44  44",
+            "   44   44",
+            "  44    44",
+            " 444444444",
+            "4444444444",
+            "        44",
+            "        44"
+        ];
+        blasterLayout.forEach((row, r) => {
+            for (let c = 0; c < row.length; c++) {
+                if (row[c] === '4') {
+                    let bx = c * blockW;
+                    let by = r * blockH;
+                    state.blocks.push({
+                        x: bx,
+                        y: by,
+                        w: blockW,
+                        h: blockH,
+                        char: '4',
+                        active: false,
+                        itemType: null,
+                        part: 'blaster',
+                        baseX: bx,
+                        baseY: by
+                    });
+                }
+            }
+        });
     } else {
         state.bossState.active = false;
+        state.boss403State.active = false;
     }
 
     let totalBlocksCount = state.blocks.length;
@@ -107,7 +157,7 @@ export const initBlocks = () => {
     }
 };
 
-export const spawnBall = () => {
+export const spawnBall = (isStart = false) => {
     if (state.reserve.length === 0) return false;
     let char = state.reserve.shift();
 
@@ -118,10 +168,15 @@ export const spawnBall = () => {
     state.paddle.w = 260;
     state.paddle.x = CANVAS_WIDTH / 2 - state.paddle.w / 2;
 
+    let initialVx = (Math.random() > 0.5 ? 1 : -1) * 1.25;
+    if ((isStart || state.reserve.length === 2) && state.currentStage === 10) {
+        initialVx = 0;
+    }
+
     state.balls.push({
         x: state.paddle.x + state.paddle.w / 2,
         y: state.paddle.y - 20,
-        vx: (Math.random() > 0.5 ? 1 : -1) * 1.25,
+        vx: initialVx,
         vy: -2,
         size: 20,
         char: char,
@@ -147,7 +202,6 @@ export const spawnPaddleParticles = () => {
             maxLife: 70
         });
     }
-    playBeep(150);
 };
 
 export const resetGame = (advanceStage = false) => {
@@ -211,6 +265,6 @@ export const resetGame = (advanceStage = false) => {
     state.paddle.nBuffEndTime = 0;
     
     initBlocks();
-    spawnBall();
+    spawnBall(true);
     state.gameState = 'TUTORIAL';
 };

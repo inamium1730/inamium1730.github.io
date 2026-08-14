@@ -53,6 +53,19 @@ export const state = {
         twoEnemiesStartTime: 0
     },
 
+    boss403State: {
+        active: false,
+        phase: 1,
+        state: 'WAITING',
+        timer: 0,
+        blasterSide: 'left',
+        blasterAlpha: 0,
+        blasterXOffset: 0,
+        blasterYOffset: 0,
+        face: { xOffset: 0, yOffset: 0, hp: 0, maxHp: 0, state: 'IDLE', timer: 0 },
+        patternSeq: 0
+    },
+
     // Reference data loaded from JS
     enemiesData: enemiesData,
     bossesData: bossesData
