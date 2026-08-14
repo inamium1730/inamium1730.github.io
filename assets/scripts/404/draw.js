@@ -17,37 +17,67 @@ export const draw = (ctx) => {
             });
         } else {
             const cloudSprites = [
-                ["  1111  ", " 111111 ", "11111111"],
-                ["   111   ", "  11111  ", " 1111111 ", "111111111"],
-                ["  11  11  ", " 11111111 ", "1111111111"]
+                [
+                    "    1111    ",
+                    "  11111111  ",
+                    " 1111111111 ",
+                    "111111111111",
+                    "111111111111"
+                ],
+                [
+                    "     11111      ",
+                    "   111111111    ",
+                    "  111111111111  ",
+                    " 11111111111111 ",
+                    "1111111111111111",
+                    "1111111111111111"
+                ],
+                [
+                    "   1111    11111    ",
+                    " 11111111 11111111  ",
+                    "1111111111111111111 ",
+                    "11111111111111111111",
+                    "11111111111111111111"
+                ]
             ];
-            const birdSprite1 = ["10001", "01010", "00100"];
-            const birdSprite2 = ["00000", "11011", "00100"];
+            const birdSprite1 = [
+                "1000001",
+                "0100010",
+                "0010100",
+                "0001000"
+            ];
+            const birdSprite2 = [
+                "0000000",
+                "1110111",
+                "0011100",
+                "0001000"
+            ];
 
             state.clouds.forEach(c => {
                 c.x -= c.speed;
-                if (c.x < -100) {
+                if (c.x < -150) {
                     c.x = CANVAS_WIDTH + 50;
-                    c.y = 50 + Math.random() * 150;
+                    c.y = 40 + Math.random() * 160;
                     c.type = Math.random() < 0.25 ? 'bird' : 'cloud';
-                    c.cloudId = Math.floor(Math.random() * 3);
-                    c.speed = 0.25 + Math.random() * 0.25;
+                    c.cloudId = Math.floor(Math.random() * cloudSprites.length);
+                    c.speed = c.type === 'bird' ? (0.8 + Math.random() * 0.4) : (0.25 + Math.random() * 0.25);
                 }
 
                 let sprite;
+                let dotSize = 4;
                 if (c.type === 'bird') {
-                    sprite = Math.floor(Date.now() / 400) % 2 === 0 ? birdSprite1 : birdSprite2;
-                    ctx.fillStyle = 'rgba(160, 160, 160, 0.6)';
+                    sprite = Math.floor(Date.now() / 250) % 2 === 0 ? birdSprite1 : birdSprite2;
+                    ctx.fillStyle = 'rgba(100, 116, 139, 0.65)';
+                    dotSize = 3;
                 } else {
                     sprite = cloudSprites[c.cloudId];
-                    ctx.fillStyle = 'rgba(200, 200, 200, 0.4)';
+                    ctx.fillStyle = 'rgba(180, 195, 210, 0.45)';
+                    dotSize = 4;
                 }
 
-                const dotSize = 5;
                 for (let r = 0; r < sprite.length; r++) {
-                    for (let col = 0; col < sprite.length; col++) {
-                        // The original code had `col < sprite[r].length`
-                        if (sprite[r] && sprite[r][col] === '1') {
+                    for (let col = 0; col < sprite[r].length; col++) {
+                        if (sprite[r][col] === '1') {
                             ctx.fillRect(c.x + col * dotSize, c.y + r * dotSize, dotSize, dotSize);
                         }
                     }
