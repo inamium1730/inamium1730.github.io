@@ -61,10 +61,12 @@ export const update = () => {
 
         let spd = 8 * state.globalSpeedMult;
         if (Date.now() < paddle.mudEndTime) spd *= 0.5;
-        if (state.keys.left) paddle.x -= spd;
-        if (state.keys.right) paddle.x += spd;
-        if (paddle.x < 0) paddle.x = 0;
-        if (paddle.x > CANVAS_WIDTH - paddle.w) paddle.x = CANVAS_WIDTH - paddle.w;
+        if (!paddle.destroyed) {
+            if (state.keys.left) paddle.x -= spd;
+            if (state.keys.right) paddle.x += spd;
+            if (paddle.x < 0) paddle.x = 0;
+            if (paddle.x > CANVAS_WIDTH - paddle.w) paddle.x = CANVAS_WIDTH - paddle.w;
+        }
 
         let isBoss5Defeated = state.currentStage === 5 && state.bossState.active && (state.bossState.face.state === 'DYING' || state.bossState.face.state === 'DEAD' || state.bossState.face.hp <= 0);
         let isBoss10Defeated = state.currentStage === 10 && state.boss403State.active && (state.boss403State.face.hp <= 0 || state.boss403State.state === 'DYING' || state.boss403State.state === 'DEAD' || state.blocks.filter(b => b.active && b.part === 'face').length === 0);
@@ -979,7 +981,7 @@ export const update = () => {
                 if (state.bossState.twoEnemiesStartTime === undefined) state.bossState.twoEnemiesStartTime = 0;
 
                 if (state.bossState.twoEnemiesStartTime === 0) {
-                    if (state.enemies.length >= 4) {
+                    if (state.enemies.length >= 2) {
                         state.bossState.twoEnemiesStartTime = Date.now();
                     }
                 } else {
@@ -1071,8 +1073,7 @@ export const update = () => {
                     let handsIdle = (state.bossState.leftHand.hp <= 0 || state.bossState.leftHand.state === 'IDLE') &&
                         (state.bossState.rightHand.hp <= 0 || state.bossState.rightHand.state === 'IDLE');
                     if (Date.now() > face.timer && Date.now() > state.bossState.stunUntil && handsIdle) {
-                        let isPhase3 = state.bossState.leftHand.state === 'DEAD' && state.bossState.rightHand.state === 'DEAD';
-                        let limit = isPhase3 ? 4 : 2;
+                        let limit = 2;
                         let isCharging = state.bossState.twoEnemiesStartTime !== undefined && state.bossState.twoEnemiesStartTime !== 0;
                         if (state.enemies.length < limit && !isCharging) {
                             face.state = 'TELEGRAPH';
@@ -2203,7 +2204,9 @@ export const update = () => {
                 else if (bs.state === 'SUMMONING') {
                     if (!bs.summoned) {
                         bs.summoned = true;
-                        let count = bs.phase === 3 ? 3 : 2;
+                        let maxAllowed = Math.max(0, 3 - state.enemies.length);
+                        let desiredCount = bs.phase === 3 ? 3 : 2;
+                        let count = Math.min(desiredCount, maxAllowed);
                         for (let i = 0; i < count; i++) {
                             let type;
                             if (bs.phase === 3 && i === 2) {
