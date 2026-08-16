@@ -176,3 +176,8 @@ export const MAP10 = {
         " 00000000000000 ",
     ]
 };
+
+export const MAPS = [null, MAP1, MAP2, MAP3, MAP4, MAP5, MAP6, MAP7, MAP8, MAP9, MAP10];
+
+export const STAGE_NAMES = ["", "404", "NOT", "FOUND", "ERROR", "404", "403", "DENIED", "ACCESS", "FORBIDDEN", "403"];
+

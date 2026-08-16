@@ -12,7 +12,6 @@ export const state = {
     blocks: [],
     globalSpeedMult: 1.75,
 
-    currentStage: 1,
     stageTitleShowTime: 0,
     enemies: [],
     enemyBullets: [],
