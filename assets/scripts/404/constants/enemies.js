@@ -40,19 +40,19 @@ export const enemiesData = {
   "BUSY": {
     "name": "BUSY",
     "stages": [12, 13, 14],
-    "attackType": "packet_straight_rocket", // 一定スピードのロケット弾（煙パーティクル推進）
+    "attackType": "packet_accelerate", // 徐々に早くなるパケット弾（煙パーティクル推進）
     "attackInterval": [6000, 9000]
   },
   "SERVICE": {
     "name": "SERVICE",
     "stages": [13, 14],
-    "attackType": "packet_targeted", // 徐々に早くなる弾（BUSY比50%遅速）、パドル狙いホーミング（追尾率33〜67%）
+    "attackType": "packet_targeted", // 徐々に早くなるパケット弾（BUSY比50%遅速・ホーミングカーブ）
     "attackInterval": [7000, 13000]
   },
   "UNAVAILABLE": {
     "name": "UNAVAILABLE",
     "stages": [14],
-    "attackType": "overload_rocket", // 重力落下ロケット。パドル高度で爆発し直撃即死、b/o/m破片撒き散らし（1ダメ）
+    "attackType": "overload_rocket", // 一定速度のロケット。パドル高度で爆発し直撃即死、b/o/m破片撒き散らし（1ダメ）
     "attackInterval": [12000, 24000]
   }
 };

@@ -620,7 +620,7 @@ const updateEnemies = (stopBalls) => {
                 } else if (en.type === 'BUSY') {
                     state.enemyBullets.push({
                         x: en.x, y: en.y + 20, w: 16, h: 24,
-                        vx: 0, vy: 1.15,
+                        vx: 0, vy: 0.33,
                         type: 'BUSY_ROCKET', dead: false
                     });
                     en.lastShootTime = Date.now();
@@ -637,7 +637,7 @@ const updateEnemies = (stopBalls) => {
                 } else if (en.type === 'UNAVAILABLE') {
                     state.enemyBullets.push({
                         x: en.x, y: en.y + 20, w: 20, h: 28,
-                        vx: 0, vy: 0.33,
+                        vx: 0, vy: 1.65,
                         type: 'UNAVAILABLE_ROCKET', dead: false
                     });
                     en.lastShootTime = Date.now();
@@ -766,7 +766,8 @@ const updateEnemyBullets = () => {
             bull.y += bull.vy * state.globalSpeedMult;
             if (bull.y > CANVAS_HEIGHT) bull.dead = true;
         } else if (bull.type === 'BUSY_ROCKET') {
-            // Constant speed rocket
+            // Accelerating packet bullet (gradually speeds up with smoke particles)
+            bull.vy += 0.08 * state.globalSpeedMult;
             bull.y += bull.vy * state.globalSpeedMult;
 
             // Rocket thruster smoke particles
@@ -785,6 +786,7 @@ const updateEnemyBullets = () => {
             }
             if (bull.y > CANVAS_HEIGHT + 50) bull.dead = true;
         } else if (bull.type === 'SERVICE_PACKET') {
+            // Accelerating packet bullet with homing curve
             bull.vy += 0.04 * state.globalSpeedMult;
             const aimX = (bull.targetX !== undefined) ? bull.targetX : (paddle.x + paddle.w / 2);
             const dx = aimX - bull.x;
@@ -810,7 +812,7 @@ const updateEnemyBullets = () => {
             }
             if (bull.y > CANVAS_HEIGHT + 50) bull.dead = true;
         } else if (bull.type === 'UNAVAILABLE_ROCKET') {
-            bull.vy += 0.05 * state.globalSpeedMult;
+            // Constant-speed rocket
             bull.y += bull.vy * state.globalSpeedMult;
 
             if (Math.random() < 0.8) {
