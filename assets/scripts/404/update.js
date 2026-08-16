@@ -625,9 +625,11 @@ const updateEnemies = (stopBalls) => {
                     });
                     en.lastShootTime = Date.now();
                 } else if (en.type === 'SERVICE') {
+                    const targetX = paddle.x + paddle.w / 2;
                     state.enemyBullets.push({
                         x: en.x, y: en.y + 20, w: 16, h: 24,
                         vx: 0, vy: 0.165,
+                        targetX: targetX,
                         homingRate: 0.33 + Math.random() * 0.34,
                         type: 'SERVICE_PACKET', dead: false
                     });
@@ -749,9 +751,12 @@ const updateEnemyBullets = () => {
             if (bull.y > CANVAS_HEIGHT + 50) bull.dead = true;
         } else if (bull.type === 'SERVICE_PACKET') {
             bull.vy += 0.04 * state.globalSpeedMult;
-            const dx = (paddle.x + paddle.w / 2) - bull.x;
-            bull.vx = (bull.vx || 0) + (dx > 0 ? 0.06 : -0.06) * (bull.homingRate || 0.5) * state.globalSpeedMult;
-            bull.vx *= 0.96;
+            const aimX = (bull.targetX !== undefined) ? bull.targetX : (paddle.x + paddle.w / 2);
+            const dx = aimX - bull.x;
+            if (Math.abs(dx) > 4) {
+                bull.vx = (bull.vx || 0) + (dx > 0 ? 0.06 : -0.06) * (bull.homingRate || 0.5) * state.globalSpeedMult;
+            }
+            bull.vx *= 0.97;
             bull.x += bull.vx * state.globalSpeedMult;
             bull.y += bull.vy * state.globalSpeedMult;
 
