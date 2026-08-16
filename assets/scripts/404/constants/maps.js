@@ -92,15 +92,15 @@ export const MAP6 = {
     spawnInterval: 16000,
     maxEnemies: 4,
     layout: [
-        "444   444    00000    333333333",
         "444   444   0000000   333333333",
+        "444   444  000000000  333333333",
         "444   444  000   000        333",
-        "444444444  000   000    333333 ",
-        "444444444  000   000    333333 ",
+        "444444444  000   000    3333333",
+        "444444444  000   000    3333333",
         "      444  000   000        333",
         "      444  000   000        333",
-        "      444   0000000   333333333",
-        "      444    00000    333333333"
+        "      444  000000000  333333333",
+        "      444   0000000   333333333"
     ]
 };
 
@@ -177,7 +177,76 @@ export const MAP10 = {
     ]
 };
 
-export const MAPS = [null, MAP1, MAP2, MAP3, MAP4, MAP5, MAP6, MAP7, MAP8, MAP9, MAP10];
+export const MAP11 = {
+    name: '503',
+    spawnInterval: 12000,
+    maxEnemies: 5,
+    layout: [
+        "555555555    0000000    333333333",
+        "555555555   000000000   333333333",
+        "555         000   000         333",
+        "555555555   000   000     3333333",
+        "555555555   000   000     3333333",
+        "      555   000   000         333",
+        "      555   000   000         333",
+        "555555555   000000000   333333333",
+        "555555555    0000000    333333333"
+    ]
+};
 
-export const STAGE_NAMES = ["", "404", "NOT", "FOUND", "ERROR", "404", "403", "DENIED", "ACCESS", "FORBIDDEN", "403"];
+export const MAP12 = {
+    name: 'BUSY',
+    spawnInterval: 11000,
+    maxEnemies: 6,
+    layout: [
+        "BBBBBBB   UUU   UUU   SSSSSSS   YYY   YYY",
+        "BBBBBBBB  UUU   UUU  SSSSSSSS   YYY   YYY",
+        "BBB   BBB UUU   UUU  SSS         YYY YYY ",
+        "BBBBBBBB  UUU   UUU   SSSSSSS     YYYYY  ",
+        "BBBBBBB   UUU   UUU    SSSSSSS     YYY   ",
+        "BBB   BBB UUU   UUU        SSS     YYY   ",
+        "BBB   BBB UUU   UUU        SSS     YYY   ",
+        "BBBBBBBB   UUUUUUU   SSSSSSSS      YYY   ",
+        "BBBBBBB     UUUUU     SSSSSSS      YYY   "
+    ]
+};
+
+export const MAP13 = {
+    name: 'SERVICE',
+    spawnInterval: 10000,
+    maxEnemies: 7,
+    layout: [
+        " SSSSSS   EEEEEEEE  RRRRRRR   VVV   VVV   CCCCCC ",
+        "SSSSSSSS  EEEEEEEE  RRRRRRRR  VVV   VVV  CCCCCCCC",
+        "SSS       EEE       RRR   RRR VVV   VVV  CCC     ",
+        " SSSSS    EEEEEEE   RRRRRRRR   VVV VVV   CCC     ",
+        "   SSSSS  EEEEEEE   RRRRRRR    VVV VVV   CCC     ",
+        "     SSS  EEE       RRR  RRR    VVVVV    CCC     ",
+        "SSS  SSS  EEE       RRR   RRR   VVVVV    CCC     ",
+        "SSSSSSSS  EEEEEEEE  RRR   RRR    VVV     CCCCCCCC",
+        " SSSSSS   EEEEEEEE  RRR    RRR   VVV      CCCCCC "
+    ]
+};
+
+export const MAP14 = {
+    name: 'UNAVAILABLE',
+    spawnInterval: 9000,
+    maxEnemies: 8,
+    layout: [
+        "UUU   UUU  NNN   NNN    AAAAA    VVV   VVV  LLL     ",
+        "UUU   UUU  NNNN  NNN   AAAAAAA   VVV   VVV  LLL     ",
+        "UUU   UUU  NNNNN NNN  AAA   AAA  VVV   VVV  LLL     ",
+        "UUU   UUU  NNNNNNNNN  AAA   AAA   VVV VVV   LLL     ",
+        "UUU   UUU  NNN NNNNN  AAAAAAAAA   VVV VVV   LLL     ",
+        "UUU   UUU  NNN  NNNN  AAAAAAAAA    VVVVV    LLL     ",
+        "UUU   UUU  NNN   NNN  AAA   AAA    VVVVV    LLL     ",
+        " UUUUUUU   NNN   NNN  AAA   AAA     VVV     LLLLLLLL",
+        "  UUUUU    NNN   NNN  AAA   AAA     VVV     LLLLLLLL"
+    ]
+};
+
+export const MAPS = [null, MAP1, MAP2, MAP3, MAP4, MAP5, MAP6, MAP7, MAP8, MAP9, MAP10, MAP11, MAP12, MAP13, MAP14];
+
+export const STAGE_NAMES = ["", "404", "NOT", "FOUND", "ERROR", "404", "403", "DENIED", "ACCESS", "FORBIDDEN", "403", "503", "BUSY", "SERVICE", "UNAVAILABLE"];
+
 

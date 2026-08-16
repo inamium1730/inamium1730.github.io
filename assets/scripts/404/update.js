@@ -461,7 +461,7 @@ const updateItems = () => {
     state.items = state.items.filter(i => !i.caught && i.y < CANVAS_HEIGHT + 50);
 };
 
-// 6. Scenery update logic (Tumbleweeds & Cacti)
+// 6. Scenery update logic (Tumbleweeds, Cacti, Cars & Airplanes)
 const updateScenery = () => {
     if (state.currentStage === 7 || state.currentStage === 10) {
         if (Math.random() < 0.015) {
@@ -481,7 +481,7 @@ const updateScenery = () => {
     });
     state.tumbleweeds = state.tumbleweeds.filter(t => t.x > -50);
 
-    if (state.currentStage >= 8 && state.cacti.length === 0) {
+    if (state.currentStage >= 8 && state.currentStage <= 10 && state.cacti.length === 0) {
         for (let i = 0; i < 3; i++) {
             const h = 60 + Math.random() * 40;
             state.cacti.push({
@@ -491,6 +491,53 @@ const updateScenery = () => {
             });
         }
     }
+
+    // Stages 12-14: Cars on road (Two-way traffic)
+    if (state.currentStage >= 12 && state.currentStage <= 14) {
+        // Stage 12 is rural/quiet with very rare cars; stages 13-14 gradually have slightly more
+        const spawnProb = state.currentStage === 12 ? 0.0018 : (state.currentStage === 13 ? 0.0035 : 0.0055);
+        const maxCars = state.currentStage === 12 ? 2 : (state.currentStage === 13 ? 3 : 4);
+
+        if (Math.random() < spawnProb && state.cars.length < maxCars) {
+            const dir = Math.random() < 0.5 ? -1 : 1; // -1: westbound (upper lane), 1: eastbound (lower lane)
+            const isTruck = Math.random() < 0.35;
+            const speed = (1.8 + Math.random() * 1.4) * dir;
+
+            // Subtle, desaturated palette blending seamlessly into background
+            const darkPalette = ['#334155', '#293548', '#382e3e', '#2b3a36', '#3b2f2f', '#475569', '#1e293b'];
+            const lightPalette = ['#64748b', '#5c6970', '#6e5d53', '#5a6b5c', '#5f6575', '#4b5563', '#78716c'];
+            const chosenPalette = currentTheme === 'dark' ? darkPalette : lightPalette;
+            const color = chosenPalette[Math.floor(Math.random() * chosenPalette.length)];
+
+            state.cars.push({
+                x: dir === -1 ? CANVAS_WIDTH + 60 : -60,
+                y: dir === -1 ? CANVAS_HEIGHT - 32 : CANVAS_HEIGHT - 17,
+                vx: speed,
+                dir: dir,
+                type: isTruck ? 'truck' : 'sedan',
+                color: color
+            });
+        }
+    }
+    state.cars.forEach(car => {
+        car.x += car.vx * state.globalSpeedMult;
+    });
+    state.cars = state.cars.filter(car => car.dir === -1 ? car.x > -100 : car.x < CANVAS_WIDTH + 100);
+
+    // Stage 14: Airplanes in sky
+    if (state.currentStage === 14) {
+        if (Math.random() < 0.003 && state.airplanes.length < 1) {
+            state.airplanes.push({
+                x: -100,
+                y: 50 + Math.random() * 50,
+                vx: 0.6 + Math.random() * 0.3
+            });
+        }
+    }
+    state.airplanes.forEach(plane => {
+        plane.x += plane.vx * state.globalSpeedMult;
+    });
+    state.airplanes = state.airplanes.filter(plane => plane.x < CANVAS_WIDTH + 100);
 };
 
 // 7. Regular Enemies update logic
@@ -498,8 +545,8 @@ const updateEnemies = (stopBalls) => {
     if (state.currentStage < 2) return;
     const paddle = state.paddle;
 
-    // Enemy spawn
-    if (state.currentStage !== 5 && state.currentStage <= 10) {
+    // Enemy spawn (stages 2-4, 6-9, 11-14)
+    if (state.currentStage !== 5 && state.currentStage !== 10 && state.currentStage <= 14) {
         if (stopBalls) return;
         const spawnInterval = state.currentMapData ? state.currentMapData.spawnInterval : 10000;
         const maxEnemies = state.currentMapData ? (state.currentMapData.maxEnemies || 0) : 0;
@@ -570,6 +617,28 @@ const updateEnemies = (stopBalls) => {
                     en.actionState = 'AIMING';
                     en.actionStartTime = Date.now();
                     en.aimTargetX = (en.type === 'ACCESS') ? (paddle.x + paddle.w / 2) : en.x;
+                } else if (en.type === 'BUSY') {
+                    state.enemyBullets.push({
+                        x: en.x, y: en.y + 20, w: 16, h: 24,
+                        vx: 0, vy: 1.0,
+                        type: 'BUSY_ROCKET', dead: false
+                    });
+                    en.lastShootTime = Date.now();
+                } else if (en.type === 'SERVICE') {
+                    state.enemyBullets.push({
+                        x: en.x, y: en.y + 20, w: 16, h: 24,
+                        vx: 0, vy: 0.165,
+                        homingRate: 0.33 + Math.random() * 0.34,
+                        type: 'SERVICE_PACKET', dead: false
+                    });
+                    en.lastShootTime = Date.now();
+                } else if (en.type === 'UNAVAILABLE') {
+                    state.enemyBullets.push({
+                        x: en.x, y: en.y + 20, w: 20, h: 28,
+                        vx: 0, vy: 1.0,
+                        type: 'UNAVAILABLE_ROCKET', dead: false
+                    });
+                    en.lastShootTime = Date.now();
                 } else {
                     if (en.type === 'ERROR') {
                         state.enemyBullets.push({
@@ -659,6 +728,114 @@ const updateEnemyBullets = () => {
             bull.x += bull.vx * state.globalSpeedMult;
             bull.y += bull.vy * state.globalSpeedMult;
             if (bull.y > CANVAS_HEIGHT) bull.dead = true;
+        } else if (bull.type === 'BUSY_ROCKET') {
+            bull.vy += 0.08 * state.globalSpeedMult;
+            bull.y += bull.vy * state.globalSpeedMult;
+
+            // Rocket thruster smoke particles
+            if (Math.random() < 0.7) {
+                state.particles.push({
+                    x: bull.x + (Math.random() - 0.5) * 6,
+                    y: bull.y - 10,
+                    vx: (Math.random() - 0.5) * 1.5,
+                    vy: -1.5 - Math.random() * 1.5,
+                    size: Math.random() * 4 + 3,
+                    color: '#9ca3af',
+                    life: 0.5,
+                    maxLife: 0.5,
+                    decay: 0.05
+                });
+            }
+            if (bull.y > CANVAS_HEIGHT + 50) bull.dead = true;
+        } else if (bull.type === 'SERVICE_PACKET') {
+            bull.vy += 0.04 * state.globalSpeedMult;
+            const dx = (paddle.x + paddle.w / 2) - bull.x;
+            bull.vx = (bull.vx || 0) + (dx > 0 ? 0.06 : -0.06) * (bull.homingRate || 0.5) * state.globalSpeedMult;
+            bull.vx *= 0.96;
+            bull.x += bull.vx * state.globalSpeedMult;
+            bull.y += bull.vy * state.globalSpeedMult;
+
+            if (Math.random() < 0.5) {
+                state.particles.push({
+                    x: bull.x + (Math.random() - 0.5) * 4,
+                    y: bull.y - 8,
+                    vx: (Math.random() - 0.5) * 1.0,
+                    vy: -1.0 - Math.random() * 1.0,
+                    size: Math.random() * 3 + 2,
+                    color: Math.random() < 0.4 ? '#ef4444' : '#9ca3af',
+                    life: 0.4,
+                    maxLife: 0.4,
+                    decay: 0.06
+                });
+            }
+            if (bull.y > CANVAS_HEIGHT + 50) bull.dead = true;
+        } else if (bull.type === 'UNAVAILABLE_ROCKET') {
+            bull.vy += 0.15 * state.globalSpeedMult;
+            bull.y += bull.vy * state.globalSpeedMult;
+
+            if (Math.random() < 0.8) {
+                state.particles.push({
+                    x: bull.x + (Math.random() - 0.5) * 8,
+                    y: bull.y - 12,
+                    vx: (Math.random() - 0.5) * 2,
+                    vy: -2 - Math.random() * 2,
+                    size: Math.random() * 5 + 4,
+                    color: Math.random() < 0.5 ? '#f97316' : '#9ca3af',
+                    life: 0.6,
+                    maxLife: 0.6,
+                    decay: 0.05
+                });
+            }
+
+            // Check direct hit with paddle
+            const hitPaddle = !paddle.destroyed && (bull.x >= paddle.x - 10 && bull.x <= paddle.x + paddle.w + 10 && bull.y >= paddle.y - 15 && bull.y <= paddle.y + paddle.h + 15);
+            if (hitPaddle) {
+                bull.dead = true;
+                paddle.destroyed = true;
+                spawnPaddleParticles();
+            } else if (bull.y >= paddle.y) {
+                // Explode at paddle height into shrapnel
+                bull.dead = true;
+
+                // Explosion particles
+                for (let i = 0; i < 20; i++) {
+                    const angle = Math.random() * Math.PI * 2;
+                    const speed = Math.random() * 6 + 2;
+                    state.particles.push({
+                        x: bull.x,
+                        y: bull.y,
+                        vx: Math.cos(angle) * speed,
+                        vy: Math.sin(angle) * speed,
+                        size: Math.random() * 6 + 3,
+                        color: ['#ef4444', '#f97316', '#facc15', '#ffffff'][Math.floor(Math.random() * 4)],
+                        life: 0.8,
+                        maxLife: 0.8,
+                        decay: 0.03
+                    });
+                }
+
+                // Scatter 'b', 'o', 'm' shrapnel
+                ['b', 'o', 'm'].forEach((char, idx) => {
+                    const angle = -Math.PI / 2 + (idx - 1) * 0.6 + (Math.random() - 0.5) * 0.2;
+                    const speed = 3.5 + Math.random() * 1.5;
+                    state.enemyBullets.push({
+                        x: bull.x,
+                        y: bull.y,
+                        w: 16,
+                        h: 16,
+                        vx: Math.cos(angle) * speed,
+                        vy: Math.sin(angle) * speed,
+                        type: 'BOM_SHRAPNEL',
+                        char: char,
+                        dead: false
+                    });
+                });
+            }
+        } else if (bull.type === 'BOM_SHRAPNEL') {
+            bull.vy += 0.2 * state.globalSpeedMult;
+            bull.x += bull.vx * state.globalSpeedMult;
+            bull.y += bull.vy * state.globalSpeedMult;
+            if (bull.y > CANVAS_HEIGHT) bull.dead = true;
         } else if (bull.type === '403_COUNTER_RETURN') {
             bull.x += bull.vx * state.globalSpeedMult;
             bull.y += bull.vy * state.globalSpeedMult;
@@ -698,7 +875,6 @@ const updateEnemyBullets = () => {
         if (bull.type === '403_SAMIDARE_RAIN' && !bull.exploded && bull.y >= bull.burstY) {
             bull.exploded = true;
             bull.dead = true;
-            playBeep(200);
             const baseAngle = Math.random() * Math.PI * 2;
             const chars = ['403', 'FOR', 'BID', 'DEN'];
             const tiltOffset = Math.PI / 4;
@@ -815,10 +991,15 @@ const updateEnemyBullets = () => {
                     const angle = Math.atan2(dy, dx);
                     bull.vx = Math.cos(angle) * 15;
                     bull.vy = Math.sin(angle) * 15;
-                    playBeep(400);
                 } else if (bull.type === 'MUD' || bull.type === 'MUD_SHRAPNEL') {
                     paddle.mudEndTime = Date.now() + 10000;
                     bull.dead = true;
+                } else if (bull.type === 'UNAVAILABLE_ROCKET') {
+                    // Direct rocket hit instantly destroys the paddle
+                    bull.dead = true;
+                    paddle.destroyed = true;
+                    spawnPaddleParticles();
+                    paddle.invincibleEndTime = Date.now() + 1000;
                 } else {
                     if (bull.type.startsWith('403_') && !isSamidare) {
                         if (state.boss403State.barrageHit || (bull.shotId && paddle.lastHitShotId === bull.shotId)) {

@@ -22,6 +22,8 @@ export const state = {
     clouds: [],
     tumbleweeds: [],
     cacti: [],
+    cars: [],
+    airplanes: [],
     glitchTime: 0,
     
     cheatBuffer: [],

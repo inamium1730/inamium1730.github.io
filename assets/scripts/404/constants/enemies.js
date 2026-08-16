@@ -1,39 +1,58 @@
 export const enemiesData = {
   "NOT": {
     "name": "NOT",
-    "stages": [2, 3, 4, 5, 6, 7],
+    "stages": [2, 3, 4, 5, 6, 7, 12],
     "attackType": "straight",
     "attackInterval": [3000, 5000] // 2値間でランダム
   },
   "FOUND": {
     "name": "FOUND",
-    "stages": [3, 4, 5, 6, 8],
+    "stages": [3, 4, 5, 6, 8, 13],
     "attackType": "targeted", // 射撃時のパドル位置を狙う
     "attackInterval": [4000, 8000]
   },
   "ERROR": {
     "name": "ERROR",
-    "stages": [4, 5, 6, 9],
+    "stages": [4, 5, 6, 9, 14],
     "attackType": "scatter", // 8方向への拡散弾
     "attackInterval": [6000, 12000]
   },
   // ステージ 6 ~ 10
   "DENIED": {
     "name": "DENIED",
-    "stages": [7, 8, 9, 10],
-    "attackType": "laser", // 2秒間、 敵の真下を狙ったレーザーポイントを行い、 1秒間その位置で固定、 その位置をレーザー射撃 (レーザーポイント・射撃中は移動しない)
+    "stages": [7, 8, 9, 10, 11, 12],
+    "attackType": "laser", // 敵の真下を狙ったレーザー
     "attackInterval": [6000, 8000]
   },
   "ACCESS": {
     "name": "ACCESS",
-    "stages": [8, 9, 10],
-    "attackType": "aimed_laser", // 2秒間、パドルの位置を狙ったレーザーポイントを行い、 1秒間その位置で固定、 その位置をレーザー射撃 (レーザーポイント・射撃中は移動しない)
+    "stages": [8, 9, 10, 11, 12, 13],
+    "attackType": "aimed_laser", // パドルの位置を狙ったレーザー
     "attackInterval": [7000, 11000]
   },
   "FORBIDDEN": {
     "name": "FORBIDDEN",
-    "stages": [9, 10],
+    "stages": [9, 10, 11, 12, 13, 14],
     "attackType": "mud", // 落下してm u dに分離、当たると移動速度低下
     "attackInterval": [8000, 14000]
+  },
+  // ステージ 11 ~ 14 (503 SERVICE UNAVAILABLE)
+  "BUSY": {
+    "name": "BUSY",
+    "stages": [12, 13, 14],
+    "attackType": "packet_accelerate", // 徐々に早くなるロケット弾（煙パーティクル推進）
+    "attackInterval": [6000, 9000]
+  },
+  "SERVICE": {
+    "name": "SERVICE",
+    "stages": [13, 14],
+    "attackType": "packet_targeted", // 徐々に早くなる弾（BUSY比50%遅速）、パドル狙いホーミング（追尾率33〜67%）
+    "attackInterval": [7000, 13000]
+  },
+  "UNAVAILABLE": {
+    "name": "UNAVAILABLE",
+    "stages": [14],
+    "attackType": "overload_rocket", // 重力落下ロケット。パドル高度で爆発し直撃即死、b/o/m破片撒き散らし（1ダメ）
+    "attackInterval": [12000, 24000]
   }
 };

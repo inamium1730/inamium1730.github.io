@@ -92,7 +92,11 @@ export const setupInput = (canvas, gameContainer) => {
         if (state.gameState === 'TUTORIAL') {
             if (e.key === 'Tab') {
                 e.preventDefault();
-                const maxStage = parseInt(localStorage.getItem('404_max_stage') || '1', 10);
+                let maxStage = parseInt(localStorage.getItem('404_max_stage') || '1', 10);
+                if (maxStage >= 10 && maxStage < 14) {
+                    maxStage = 14;
+                    localStorage.setItem('404_max_stage', '14');
+                }
                 if (maxStage > 1) {
                     if (e.shiftKey) {
                         state.currentStage = state.currentStage <= 1 ? maxStage : state.currentStage - 1;
@@ -108,6 +112,7 @@ export const setupInput = (canvas, gameContainer) => {
                 state.cheatBuffer.push(e.key);
                 if (state.cheatBuffer.length > 3) state.cheatBuffer.shift();
                 if (state.cheatBuffer.join('') === '404') {
+                    localStorage.setItem('404_max_stage', '14');
                     resetGame(true);
                     state.cheatBuffer = [];
                 }

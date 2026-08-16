@@ -70,7 +70,6 @@ export const updateBoss10 = () => {
     if (bs.explosionsLeft > 0 && Date.now() >= bs.nextExplosionTime) {
         bs.explosionsLeft--;
         bs.nextExplosionTime = Date.now() + 250;
-        playBeep(100);
 
         let b = faceBlocks.length > 0 ? faceBlocks[Math.floor(Math.random() * faceBlocks.length)] : null;
         let expX = b ? (b.baseX + bs.face.xOffset + b.w / 2) : (CANVAS_WIDTH / 2 + bs.face.xOffset + (Math.random() - 0.5) * 150);
@@ -134,7 +133,6 @@ export const updateBoss10 = () => {
         if (wasSmoking) {
             bs.phaseShakeEndTime = Date.now() + 1500;
         }
-        playBeep(200);
     }
 
     // Push out balls trapped in face during phase shake
@@ -171,7 +169,6 @@ export const updateBoss10 = () => {
         state.enemies = [];
         state.enemyBullets = [];
         state.balls.forEach(b => { b.vx = 0; b.vy = 0; b.isEnhanced = false; });
-        playBeep(100);
     }
 
     if (bs.state === 'DYING') {
@@ -196,7 +193,6 @@ export const updateBoss10 = () => {
                 });
             }
             if (b) b.active = false;
-            playBeep(100);
         }
 
         if (Date.now() > bs.timer) {
@@ -223,7 +219,6 @@ export const updateBoss10 = () => {
                     });
                 }
             }
-            playBeep(80);
         }
     } else if (bs.state === 'DEAD') {
         if (Date.now() > bs.timer) {
@@ -513,7 +508,6 @@ export const updateBoss10 = () => {
                     char: '403FORBIDDEN',
                     dead: false
                 });
-                playBeep(300);
             }
 
             if (Date.now() > bs.timer) {
@@ -546,7 +540,6 @@ export const updateBoss10 = () => {
                     exploded: false,
                     dead: false
                 });
-                playBeep(250);
             }
 
             if (bs.samidareRainSpawned >= 13) {
@@ -587,7 +580,6 @@ export const updateBoss10 = () => {
                     fireStartTime: Date.now(),
                     dead: false
                 });
-                playBeep(200);
 
                 bs.laserCount++;
                 let maxLasers = (bs.phase === 3) ? 6 : 3;
@@ -643,7 +635,6 @@ export const updateBoss10 = () => {
                         fireStartTime: Date.now(),
                         dead: false
                     });
-                    playBeep(400);
 
                     targetBall.hidden = true;
                     targetBall.vx = 0;

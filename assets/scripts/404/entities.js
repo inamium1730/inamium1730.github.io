@@ -152,14 +152,20 @@ export const spawnPaddleParticles = () => {
 };
 
 export const resetGame = (advanceStage = false) => {
+    let maxStage = parseInt(localStorage.getItem('404_max_stage') || '1', 10);
+    // If player had cleared stage 10 in previous versions, unlock up to 14
+    if (maxStage >= 10 && maxStage < 14) {
+        maxStage = 14;
+        localStorage.setItem('404_max_stage', '14');
+    }
+
     if (advanceStage) {
-        const nextStage = state.currentStage >= 10 ? 1 : state.currentStage + 1;
-        const maxStage = parseInt(localStorage.getItem('404_max_stage') || '1', 10);
-        if (state.currentStage < 10 && nextStage > maxStage) {
+        const nextStage = state.currentStage >= 14 ? 1 : state.currentStage + 1;
+        if (state.currentStage < 14 && nextStage > maxStage) {
             localStorage.setItem('404_max_stage', nextStage);
         }
-        if (state.currentStage === 10) {
-            localStorage.setItem('404_max_stage', 10);
+        if (state.currentStage === 14) {
+            localStorage.setItem('404_max_stage', 14);
         }
         state.currentStage = nextStage;
     }
@@ -185,6 +191,8 @@ export const resetGame = (advanceStage = false) => {
     
     state.tumbleweeds = [];
     state.cacti = [];
+    state.cars = [];
+    state.airplanes = [];
     state.glitchTime = 0;
     
     state.stars = [];
