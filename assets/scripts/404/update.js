@@ -626,9 +626,12 @@ const updateEnemies = (stopBalls) => {
                     en.lastShootTime = Date.now();
                 } else if (en.type === 'SERVICE') {
                     const targetX = paddle.x + paddle.w / 2;
+                    const startY = en.y + 20;
                     state.enemyBullets.push({
-                        x: en.x, y: en.y + 20, w: 16, h: 24,
-                        vx: 0, vy: 0.165,
+                        x: en.x, y: startY,
+                        startX: en.x, startY: startY,
+                        w: 16, h: 24,
+                        vx: 0, vy: 0.2,
                         targetX: targetX,
                         homingRate: 0.33 + Math.random() * 0.34,
                         type: 'SERVICE_PACKET', dead: false
@@ -786,14 +789,22 @@ const updateEnemyBullets = () => {
             }
             if (bull.y > CANVAS_HEIGHT + 50) bull.dead = true;
         } else if (bull.type === 'SERVICE_PACKET') {
-            // Accelerating packet bullet with homing curve
-            bull.vy += 0.04 * state.globalSpeedMult;
+            // Accelerating packet bullet with EaseIn homing curve
+            bull.vy += 0.045 * state.globalSpeedMult;
+
+            // EaseIn progression: initially falls nearly straight down, then curves progressively stronger as it falls
+            const totalFallDist = Math.max(200, (CANVAS_HEIGHT - 60) - (bull.startY || 100));
+            const currentFall = Math.max(0, bull.y - (bull.startY || 100));
+            const t = Math.min(1.0, currentFall / totalFallDist);
+            const easeInWeight = Math.pow(t, 2.2); // Stronger curvature in late flight
+
             const aimX = (bull.targetX !== undefined) ? bull.targetX : (paddle.x + paddle.w / 2);
             const dx = aimX - bull.x;
-            if (Math.abs(dx) > 4) {
-                bull.vx = (bull.vx || 0) + (dx > 0 ? 0.06 : -0.06) * (bull.homingRate || 0.5) * state.globalSpeedMult;
+
+            if (Math.abs(dx) > 2) {
+                bull.vx = (bull.vx || 0) + (dx > 0 ? 0.20 : -0.20) * (bull.homingRate || 0.5) * easeInWeight * state.globalSpeedMult;
             }
-            bull.vx *= 0.97;
+            bull.vx *= 0.98;
             bull.x += bull.vx * state.globalSpeedMult;
             bull.y += bull.vy * state.globalSpeedMult;
 
