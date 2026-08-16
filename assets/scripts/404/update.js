@@ -631,8 +631,9 @@ const updateEnemies = (stopBalls) => {
                         x: en.x, y: startY,
                         startX: en.x, startY: startY,
                         w: 16, h: 24,
-                        vx: 0, vy: 0.2,
+                        vx: 0, vy: 0.25,
                         targetX: targetX,
+                        targetY: paddle.y,
                         homingRate: 0.33 + Math.random() * 0.34,
                         type: 'SERVICE_PACKET', dead: false
                     });
@@ -640,7 +641,7 @@ const updateEnemies = (stopBalls) => {
                 } else if (en.type === 'UNAVAILABLE') {
                     state.enemyBullets.push({
                         x: en.x, y: en.y + 20, w: 20, h: 28,
-                        vx: 0, vy: 1.65,
+                        vx: 0, vy: 2.75,
                         type: 'UNAVAILABLE_ROCKET', dead: false
                     });
                     en.lastShootTime = Date.now();
@@ -789,24 +790,32 @@ const updateEnemyBullets = () => {
             }
             if (bull.y > CANVAS_HEIGHT + 50) bull.dead = true;
         } else if (bull.type === 'SERVICE_PACKET') {
-            // Accelerating packet bullet with EaseIn homing curve
+            // Accelerating packet bullet with smooth parametric EaseIn curve
             bull.vy += 0.045 * state.globalSpeedMult;
-
-            // EaseIn progression: initially falls nearly straight down, then curves progressively stronger as it falls
-            const totalFallDist = Math.max(200, (CANVAS_HEIGHT - 60) - (bull.startY || 100));
-            const currentFall = Math.max(0, bull.y - (bull.startY || 100));
-            const t = Math.min(1.0, currentFall / totalFallDist);
-            const easeInWeight = Math.pow(t, 2.2); // Stronger curvature in late flight
-
-            const aimX = (bull.targetX !== undefined) ? bull.targetX : (paddle.x + paddle.w / 2);
-            const dx = aimX - bull.x;
-
-            if (Math.abs(dx) > 2) {
-                bull.vx = (bull.vx || 0) + (dx > 0 ? 0.20 : -0.20) * (bull.homingRate || 0.5) * easeInWeight * state.globalSpeedMult;
-            }
-            bull.vx *= 0.98;
-            bull.x += bull.vx * state.globalSpeedMult;
             bull.y += bull.vy * state.globalSpeedMult;
+
+            const startY = bull.startY !== undefined ? bull.startY : 100;
+            const targetY = bull.targetY !== undefined ? bull.targetY : (CANVAS_HEIGHT - 60);
+            const totalFallDist = Math.max(100, targetY - startY);
+            const currentFall = bull.y - startY;
+            const t = currentFall / totalFallDist;
+
+            if (t <= 1.0) {
+                // Pure smooth EaseIn curve (initially vertical, curves with increasing rate towards targetX)
+                const easeInT = Math.pow(Math.max(0, t), 2.2);
+                const startX = bull.startX !== undefined ? bull.startX : bull.x;
+                const targetX = bull.targetX !== undefined ? bull.targetX : (paddle.x + paddle.w / 2);
+                const homingRate = bull.homingRate || 0.5;
+
+                bull.x = startX + (targetX - startX) * homingRate * easeInT;
+
+                // Calculate current instantaneous horizontal velocity for seamless continuation
+                const dt = (bull.vy * state.globalSpeedMult) / totalFallDist;
+                bull.lastVx = (targetX - startX) * homingRate * 2.2 * Math.pow(Math.max(0, t), 1.2) * (dt || 0.01);
+            } else {
+                // Past the target height, smoothly continue along the current tangent velocity
+                bull.x += (bull.lastVx || 0);
+            }
 
             if (Math.random() < 0.5) {
                 state.particles.push({
