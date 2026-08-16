@@ -40,7 +40,7 @@ export const enemiesData = {
   "BUSY": {
     "name": "BUSY",
     "stages": [12, 13, 14],
-    "attackType": "packet_accelerate", // 徐々に早くなるロケット弾（煙パーティクル推進）
+    "attackType": "packet_straight_rocket", // 一定スピードのロケット弾（煙パーティクル推進）
     "attackInterval": [6000, 9000]
   },
   "SERVICE": {

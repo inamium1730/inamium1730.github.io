@@ -982,10 +982,8 @@ const drawEnemyBullets = (ctx, textColor) => {
             bColor = (Math.floor(Date.now() / 100) % 2 === 0) ? flashColor : textColor;
         } else if (bull.type === 'BUSY_ROCKET' || bull.type === 'SERVICE_PACKET') {
             bColor = (Math.floor(Date.now() / 120) % 2 === 0) ? '#ef4444' : textColor;
-        } else if (bull.type === 'UNAVAILABLE_ROCKET') {
+        } else if (bull.type === 'UNAVAILABLE_ROCKET' || bull.type === 'BOM_SHRAPNEL') {
             bColor = (Math.floor(Date.now() / 100) % 2 === 0) ? '#ef4444' : textColor;
-        } else if (bull.type === 'BOM_SHRAPNEL') {
-            bColor = (Math.floor(Date.now() / 200) % 2 === 0) ? '#facc15' : textColor;
         } else if (bull.type === 'MUD' || bull.type === 'MUD_SHRAPNEL') {
             const mudColor = currentTheme === 'dark' ? '#78350f' : '#451a03';
             bColor = (Math.floor(Date.now() / 500) % 2 === 0) ? mudColor : textColor;

@@ -620,7 +620,7 @@ const updateEnemies = (stopBalls) => {
                 } else if (en.type === 'BUSY') {
                     state.enemyBullets.push({
                         x: en.x, y: en.y + 20, w: 16, h: 24,
-                        vx: 0, vy: 1.0,
+                        vx: 0, vy: 1.15,
                         type: 'BUSY_ROCKET', dead: false
                     });
                     en.lastShootTime = Date.now();
@@ -637,7 +637,7 @@ const updateEnemies = (stopBalls) => {
                 } else if (en.type === 'UNAVAILABLE') {
                     state.enemyBullets.push({
                         x: en.x, y: en.y + 20, w: 20, h: 28,
-                        vx: 0, vy: 1.0,
+                        vx: 0, vy: 0.33,
                         type: 'UNAVAILABLE_ROCKET', dead: false
                     });
                     en.lastShootTime = Date.now();
@@ -700,6 +700,41 @@ const updateEnemies = (stopBalls) => {
     });
 };
 
+// Helper to spawn large visual rocket explosion particles
+const spawnRocketExplosion = (x, y) => {
+    const expColors = ['#ef4444', '#f97316', '#facc15', '#fef08a', '#ffffff'];
+    for (let i = 0; i < 45; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const speed = Math.random() * 9 + 2;
+        state.particles.push({
+            x: x,
+            y: y,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed,
+            size: Math.random() * 8 + 4,
+            color: expColors[Math.floor(Math.random() * expColors.length)],
+            life: 0.9,
+            maxLife: 0.9,
+            decay: 0.025
+        });
+    }
+    for (let i = 0; i < 20; i++) {
+        const angle = (i / 20) * Math.PI * 2;
+        const speed = 4 + Math.random() * 2;
+        state.particles.push({
+            x: x,
+            y: y,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed,
+            size: Math.random() * 6 + 4,
+            color: currentTheme === 'dark' ? '#64748b' : '#9ca3af',
+            life: 0.7,
+            maxLife: 0.7,
+            decay: 0.03
+        });
+    }
+};
+
 // 8. Enemy Bullets update & paddle hit checks
 const updateEnemyBullets = () => {
     const paddle = state.paddle;
@@ -731,7 +766,7 @@ const updateEnemyBullets = () => {
             bull.y += bull.vy * state.globalSpeedMult;
             if (bull.y > CANVAS_HEIGHT) bull.dead = true;
         } else if (bull.type === 'BUSY_ROCKET') {
-            bull.vy += 0.08 * state.globalSpeedMult;
+            // Constant speed rocket
             bull.y += bull.vy * state.globalSpeedMult;
 
             // Rocket thruster smoke particles
@@ -775,7 +810,7 @@ const updateEnemyBullets = () => {
             }
             if (bull.y > CANVAS_HEIGHT + 50) bull.dead = true;
         } else if (bull.type === 'UNAVAILABLE_ROCKET') {
-            bull.vy += 0.15 * state.globalSpeedMult;
+            bull.vy += 0.05 * state.globalSpeedMult;
             bull.y += bull.vy * state.globalSpeedMult;
 
             if (Math.random() < 0.8) {
@@ -798,28 +833,13 @@ const updateEnemyBullets = () => {
                 bull.dead = true;
                 paddle.destroyed = true;
                 spawnPaddleParticles();
+                spawnRocketExplosion(bull.x, bull.y);
             } else if (bull.y >= paddle.y) {
                 // Explode at paddle height into shrapnel
                 bull.dead = true;
+                spawnRocketExplosion(bull.x, bull.y);
 
-                // Explosion particles
-                for (let i = 0; i < 20; i++) {
-                    const angle = Math.random() * Math.PI * 2;
-                    const speed = Math.random() * 6 + 2;
-                    state.particles.push({
-                        x: bull.x,
-                        y: bull.y,
-                        vx: Math.cos(angle) * speed,
-                        vy: Math.sin(angle) * speed,
-                        size: Math.random() * 6 + 3,
-                        color: ['#ef4444', '#f97316', '#facc15', '#ffffff'][Math.floor(Math.random() * 4)],
-                        life: 0.8,
-                        maxLife: 0.8,
-                        decay: 0.03
-                    });
-                }
-
-                // Scatter 'b', 'o', 'm' shrapnel
+                // Scatter 'b', 'o', 'm' shrapnel (1 damage each on paddle collision)
                 ['b', 'o', 'm'].forEach((char, idx) => {
                     const angle = -Math.PI / 2 + (idx - 1) * 0.6 + (Math.random() - 0.5) * 0.2;
                     const speed = 3.5 + Math.random() * 1.5;
@@ -999,12 +1019,27 @@ const updateEnemyBullets = () => {
                 } else if (bull.type === 'MUD' || bull.type === 'MUD_SHRAPNEL') {
                     paddle.mudEndTime = Date.now() + 10000;
                     bull.dead = true;
-                } else if (bull.type === 'UNAVAILABLE_ROCKET') {
-                    // Direct rocket hit instantly destroys the paddle
+                } else if (bull.type === 'UNAVAILABLE_ROCKET' || bull.type === 'BUSY_ROCKET') {
+                    // Direct rocket hit explodes and damages paddle
                     bull.dead = true;
-                    paddle.destroyed = true;
-                    spawnPaddleParticles();
-                    paddle.invincibleEndTime = Date.now() + 1000;
+                    spawnRocketExplosion(bull.x, bull.y);
+                    if (bull.type === 'UNAVAILABLE_ROCKET') {
+                        paddle.destroyed = true;
+                        spawnPaddleParticles();
+                        paddle.invincibleEndTime = Date.now() + 1000;
+                    } else {
+                        // BUSY_ROCKET: progress damage
+                        if (Date.now() < paddle.ndEndTime) {
+                            paddle.destroyed = true;
+                            spawnPaddleParticles();
+                        } else if (Date.now() < paddle.foundEndTime) {
+                            paddle.ndEndTime = Date.now() + 5000;
+                            paddle.foundEndTime = Date.now() + 10000;
+                        } else {
+                            paddle.foundEndTime = Date.now() + 10000;
+                            paddle.ndEndTime = 0;
+                        }
+                    }
                 } else {
                     if (bull.type.startsWith('403_') && !isSamidare) {
                         if (state.boss403State.barrageHit || (bull.shotId && paddle.lastHitShotId === bull.shotId)) {
